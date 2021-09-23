@@ -1,0 +1,46 @@
+Milos Rankovic
+ranenbg@gmail.com
+23.07.2021.
+wheel control v1.8
+
+About:
+
+Wheel control is made in programming environment called Processing, which is based on Java. It opperartes by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup.
+
+You can use Arduino Leonardo, Arduino Micro or Arduino Pro Micro boards. They need to have a correct bootloader uploaded to them. You can verify by pressing restart button, if the Arduino enters bootloader mode for about 8sec it is ok, LED will slowly blink during this time. If it instantly restarts you will need to upload bootloader. Complete description of that procedure is outside of the scope of this manual (https://www.arduino.cc/en/Tutorial/BuiltInExamples/ArduinoISP).
+
+How to start wheel control:
+
+[0] upload desired HEX file to your Arduino using XLoader
+[1] configure the Gamepad input library
+[2] congifure correct COM port of your Arduino
+
+Before starting wheel control tool, a one time configuration will be needed. A pink window will appear showing two sides of buttons and axis. You need to connect each one by dragging a line. Just start from top and work your way to the bottom. Once done, click verify button. If no errors appear click use button.
+
+Now a dialog window will appear and you will need to select at which COM port is your Arduino, by typing one of the letters (a, b, c,...). This is required only once, since selected COM port will be saved in COM_cfg.txt file. If the number of COM devices is not changed by plugging or unplugging any other COM devices, Arduino should stay at the same COM port. If there was a change, go in data folder of wheel control and delete COM_cfg.txt file. Start wheel control and you will see window for selecting COM port again. File COM_cfg.txt will be saved again with new COM port. Optionally you can just manually edit COM_cfg.txt with a correct COM port. The COM port selection window only appears if there is no COM_cfg.txt present in data folder of wheel control.
+
+How to use wheel control:
+
+[0] set your encoder CPR (CPR=4xPPR)
+[1] set desired Rotation degrees
+[2] manually return your wheel to center position, press center and then save button
+[3] select PWM type (phase correct is recommended)
+[4] select PWM mode (pwm+dir or pwm+- are available)
+[5] select PWM frequency (check firmware info.txt for more details)
+[6] press pwm button and close wheel control, Arduino will need a restart to apply new PWM settings
+
+The utility supports user effects or sometimes called desktop effects. These are "allways on" effects that will be added to any other FFB effects which other games or application may send. You may enable certain desktop effects like spring, damper, inertia or friction by pressing a square button next to the corresponding slider. These effects may be usefull for DD wheels, to simulate some liveliness of AC motor like moment of inertia (inertia gain), autocentering (spring gain) or friction (friction gain).
+
+Use overall gain to set the master volume or gain for all FFB effects. You may use min PWM slider to compensate for startup current and system friction when using other motor types than AC servo motors. It is usefull for DC brushed motors especially.
+
+The button next to overall gain is for enabling/disabling real time FFB monitor graph. It is extremely usefull for troubleshooting or fine tunning your FFB settings in the game and finding the point of clipping. It is directly showing an FFB signal over COM port, that a game is sending in 1sec time window. It is recommended not to keep it always on, its purpose is only for FFB signal inspection and making sure there is no clipping. Once you are happy wiht your FFB, disable the FFB monitor, not to cause any delays due to COM data transfer.
+
+New feature is profile selector. Select one of the empty slots first. Make changes to the FFB settings as you wish and click store button. Type some name and click ok. This will save a profile into a txt file. Wheel control will look for any existing profiles at each start up, so you can load it. Note that PWM settings are not stored and loaded from a profile config.
+
+Additional startup troubleshooting has been added, such that diagnosing white screen startup problems will be easier.
+
+Hopefully everything else will be self explanatory, enjoy :)
+rane.
+
+
+
