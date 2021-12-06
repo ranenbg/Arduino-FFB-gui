@@ -19,8 +19,8 @@ class Slajder {
     Axis[0] = gpad.getSlider("Xaxis").getValue();
     Axis[1] = -gpad.getSlider("Yaxis").getValue();
     Axis[2] = -gpad.getSlider("Zaxis").getValue();
-    Axis[3] = -gpad.getSlider("Xrotation").getValue();
-    //Axis[4] = gpad.getSlider("Zrotation").getValue();
+    Axis[3] = -gpad.getSlider("RXaxis").getValue();
+    Axis[4] = -gpad.getSlider("RYaxis").getValue();
   }
 
   void show() {

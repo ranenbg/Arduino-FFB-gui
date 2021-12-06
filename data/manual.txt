@@ -1,7 +1,7 @@
 Milos Rankovic
 ranenbg@gmail.com
-23.07.2021.
-wheel control v1.8
+05.12.2021.
+wheel control v1.9 - only compatible with Arduino HEX versions v160 and newer
 
 About:
 
@@ -23,8 +23,8 @@ How to use wheel control:
 
 [0] set your encoder CPR (CPR=4xPPR)
 [1] set desired Rotation degrees
-[2] manually return your wheel to center position, press center and then save button
-[3] select PWM type (phase correct is recommended)
+[2] manually align your wheel to center position, press center and then save button
+[3] select PWM type (phase correct is recommended, but you can use fast top for twice higher frequency at the same resolution)
 [4] select PWM mode (pwm+dir or pwm+- are available)
 [5] select PWM frequency (check firmware info.txt for more details)
 [6] press pwm button and close wheel control, Arduino will need a restart to apply new PWM settings

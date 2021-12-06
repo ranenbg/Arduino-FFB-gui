@@ -74,7 +74,7 @@ Configuration config;
 ControlDevice gpad; 
 
 // gamepad axis array
-float[] Axis = new float[4];
+float[] Axis = new float[5];
 float axisValue;
 float scaledValue;
 // gamepad button array
@@ -108,7 +108,7 @@ int sldXoff = 100;
 float slider_max = 2.0;
 
 Wheel[] wheels = new Wheel [1];
-Slajder[] slajderi = new Slajder[4];
+Slajder[] slajderi = new Slajder[5];
 Dugme[] dugmici = new Dugme[num_btn];
 //HatSW[] hatsw = new HatSW[1];
 //Graph[] graphs = new Graph [1];
@@ -131,7 +131,7 @@ void setup() {
   println("Instance:", control);
   // Find a device that matches the configuration file
   if (!f.exists()) showMessageDialog(frame, "Setup will now try to get devices.\n", "Step 2/3", INFORMATION_MESSAGE);
-  gpad = control.getMatchedDevice("Arduino Leonardo wheel v3");
+  gpad = control.getMatchedDevice("Arduino Leonardo wheel v4");
   if (gpad == null) {
     println("No suitable device configured");
     System.exit(-1); // End the program NOW!
@@ -179,10 +179,11 @@ void setup() {
   wheels[0] = new Wheel(0.05*width+0.5*scale, posY-80, scale*0.9, str(frameRate));
   //wheels[1] = new Wheel(width/2+1.8*scale, height/2, scale*0.9, "LFS car's wheel Y");
   //}
-  slajderi[0] = new Slajder(0*48, width/3.5 + 0*60, height-posY, 10, 65535, "X");
-  slajderi[1] = new Slajder(1*48, width/3.5 + 1*60, height-posY, 10, 4095, "Y");
-  slajderi[2] = new Slajder(2*48, width/3.5 + 2*60, height-posY, 10, 4095, "Z");
-  slajderi[3] = new Slajder(3*48, width/3.5 + 3*60, height-posY, 10, 4095, "RX");
+  slajderi[0] = new Slajder(0*48, width/3.65 + 0*60, height-posY, 10, 65535, "X");
+  slajderi[1] = new Slajder(1*48, width/3.65 + 1*60, height-posY, 10, 4095, "Y");
+  slajderi[2] = new Slajder(2*48, width/3.65 + 2*60, height-posY, 10, 4095, "Z");
+  slajderi[3] = new Slajder(3*48, width/3.65 + 3*60, height-posY, 10, 4095, "RX");
+  slajderi[4] = new Slajder(4*48, width/3.65 + 4*60, height-posY, 10, 4095, "RY");
 
   for (int j = 0; j < dugmici.length; j++) { // wheel buttons
     if (j <=7) {
@@ -201,7 +202,7 @@ void setup() {
   // general control buttons
   buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center");
   buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default");
-  buttons[2] = new Button(width/3.5 + 2*60, height-posY+31, 50, 16, "recalib");
+  buttons[2] = new Button(width/3.7 + 2*60, height-posY+31, 50, 16, "recalib");
   buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save");
   buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm");
   buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store");
@@ -334,7 +335,7 @@ void setup() {
   cp5 = new ControlP5(this);
   num1 = cp5.addNumberbox("CPR")
     .setSize(45, 18)
-    .setPosition(int(width/3.5) - 15 +  0.0*60, height-posY+30)
+    .setPosition(int(width/3.65) - 15 +  0.0*60, height-posY+30)
     .setValue(lastCPR)
     ;               
   makeEditable(num1);
@@ -571,7 +572,7 @@ void draw_labels() {
   pushMatrix();
   translate(width/3.5, height-159);
   text("Arduino FFB Wheel", 0, 0);
-  text("Control panel v1.81", 0, 20);
+  text("Control panel v1.9", 0, 20);
   text("Miloš Ranković 2018-2021", 0, 40);
   text("ranenbg@gmail.com", 0, 60);
   popMatrix();
