@@ -9,5 +9,5 @@ The GUI is made in Processing v3.5.4 from scratch and requires lattest Java 8. I
 
 Processing IDE can be found here: https://processing.org/download
 
-Screenshot of v2.0
+Screenshot of GUI v2.0
 ![plot](./data/Wheel_control_v2_0.png)
