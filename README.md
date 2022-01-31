@@ -6,3 +6,5 @@ Made in Processing v3.5.4, requires lattest Java 8. In order to compile the sour
 - gp4 controls
 - sprites
 - control P5
+
+![plot](./data/Wheel_control_v2_0.png)
