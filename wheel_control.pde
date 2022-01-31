@@ -10,6 +10,8 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
+String cpVer="v2.0"; // control panel version
+
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
 String wb;     // Data to send to the serial port
@@ -66,6 +68,7 @@ boolean checkFwVer = true; // when enabled update fwVersion will take place
 boolean enabledac, modedac; // keeps track of DAC settings
 boolean profileActuated = false; // keeps track if we pressed the profile selection
 boolean CPRlimit = false; // true if we input more than max allowed CPR
+int rbt_ms = 0; // read buffer response time in milliseconds
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -106,11 +109,13 @@ int slider_width = 400;
 int slider_height = 110;
 int sldXoff = 100;
 float slider_max = 2.0;
+int num_axis = 5; // number of axis to display
+color[] axis_color = new color [num_axis];
 
 Wheel[] wheels = new Wheel [1];
-Slajder[] slajderi = new Slajder[5];
+Slajder[] slajderi = new Slajder[num_axis];
 Dugme[] dugmici = new Dugme[num_btn];
-//HatSW[] hatsw = new HatSW[1];
+HatSW[] hatsw = new HatSW[1];
 //Graph[] graphs = new Graph [1];
 Dialog[] dialogs = new Dialog [1];
 Button[] buttons = new Button[cntl_btn];
@@ -121,24 +126,30 @@ Profile[] profiles = new Profile[num_profiles];
 void setup() {
   size(1440, 800, JAVA2D);
   colorMode (HSB);
-  //frameRate(120);
-  font = createFont("Arial", 16, true);
-  textSize(font_size);
+  //frameRate(100);
+  background(51);
+  showSetupText("Configuring wheel control");
   File f = new File(dataPath("COM_cfg.txt"));
-  if (!f.exists()) showMessageDialog(frame, "Setup will now try to look for IO instances.", "Step 1/3", INFORMATION_MESSAGE);
+  //https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
+  if (!f.exists()) showMessageDialog(frame, "COM_cfg.txt is not present, a one time\nautomatic device setup will now start.\n", "Arduino FFB Wheel " + cpVer, INFORMATION_MESSAGE);
+  if (!f.exists()) showMessageDialog(frame, "Setup will now try to find control IO instances.\n", "Setup - step 1/3", INFORMATION_MESSAGE);
   // Initialise the ControlIO
   control = ControlIO.getInstance(this);
   println("Instance:", control);
   // Find a device that matches the configuration file
-  if (!f.exists()) showMessageDialog(frame, "Setup will now try to get devices.\n", "Step 2/3", INFORMATION_MESSAGE);
-  gpad = control.getMatchedDevice("Arduino Leonardo wheel v4");
+  if (!f.exists()) showMessageDialog(frame, "Setup will now try to list available game devices.\n", "Setup - step 2/3", INFORMATION_MESSAGE);
+  String inputdevices = "";
+  inputdevices = control.deviceListToText("");
+  //inputdevices = control.devicesToText("");
+  if (!f.exists()) showMessageDialog(frame, inputdevices+"\nIf this step does not pass you may try to run wheel_control.pde source code from Processsing 3.5.4.\n", "Setup - Device list", INFORMATION_MESSAGE);
+  println(inputdevices);
+  gpad = control.getMatchedDevice("Arduino Leonardo wheel v5");
   if (gpad == null) {
     println("No suitable device configured");
     System.exit(-1); // End the program NOW!
   } else {
     println("Device:", gpad);
   }
-
   int r;
   //println("   config:",f.exists());
   if (f.exists()) { // if there is COM_cfg.txt, load serial port number from cfg file
@@ -157,11 +168,15 @@ void setup() {
       println("config: saved");
     }
   }
+  showSetupText("Configuration done");
 
   // Open whatever port is the one you're using.
   //String portName = Serial.list()[2]; //change the 0 to a 1 or 2 etc. to match your port
   //myPort = new Serial(this, portName, 115200);
   //myPort = new Serial(this, "COM5", 115200);
+
+  font = createFont("Arial", 16, true);
+  textSize(font_size);
 
   posY = height - (2.2*scale);
 
@@ -179,11 +194,14 @@ void setup() {
   wheels[0] = new Wheel(0.05*width+0.5*scale, posY-80, scale*0.9, str(frameRate));
   //wheels[1] = new Wheel(width/2+1.8*scale, height/2, scale*0.9, "LFS car's wheel Y");
   //}
-  slajderi[0] = new Slajder(0*48, width/3.65 + 0*60, height-posY, 10, 65535, "X");
-  slajderi[1] = new Slajder(1*48, width/3.65 + 1*60, height-posY, 10, 4095, "Y");
-  slajderi[2] = new Slajder(2*48, width/3.65 + 2*60, height-posY, 10, 4095, "Z");
-  slajderi[3] = new Slajder(3*48, width/3.65 + 3*60, height-posY, 10, 4095, "RX");
-  slajderi[4] = new Slajder(4*48, width/3.65 + 4*60, height-posY, 10, 4095, "RY");
+
+  SetAxisColors(); // checks for existing colors in txt file
+
+  slajderi[0] = new Slajder(axis_color[0], width/3.65 + 0*60, height-posY, 10, 65535, "X");
+  slajderi[1] = new Slajder(axis_color[1], width/3.65 + 1*60, height-posY, 10, 4095, "Y");
+  slajderi[2] = new Slajder(axis_color[2], width/3.65 + 2*60, height-posY, 10, 4095, "Z");
+  slajderi[3] = new Slajder(axis_color[3], width/3.65 + 3*60, height-posY, 10, 4095, "RX");
+  slajderi[4] = new Slajder(axis_color[4], width/3.65 + 4*60, height-posY, 10, 4095, "RY");
 
   for (int j = 0; j < dugmici.length; j++) { // wheel buttons
     if (j <=7) {
@@ -243,10 +261,10 @@ void setup() {
     infos[n] = new Info(0.05*width, height-posY*1.85+4*28+2*n*font_size, font_size, description[n], keys[n]);
   }
 
-  /*for (int k = 0; k < hatsw.length; k++) {
-   hatsw[k] = new HatSW(0.89*width, height-posY - 12*28, 16, 64);
-   }
-   for (int i = 0; i < graphs.length; i++) {
+  for (int k = 0; k < hatsw.length; k++) {
+    hatsw[k] = new HatSW(0.05*width + 9*28 + 7, height-posY*1.85+1*28 + 10, 14, 48);
+  }
+  /*for (int i = 0; i < graphs.length; i++) {
    graphs[i] = new Graph(width/2, height/2, scale*2, 3);
    }*/
   xAxis_log_max = 1;
@@ -442,11 +460,11 @@ void drawWheelControll() {
     buttonValue = Button[j];
     dugmici[j].show(j);
   }
-  /*for (int k = 0; k < hatsw.length; k++) {
-   hatsw[k].update();
-   hatsw[k].show();
-   hatsw[k].showArrow();
-   }*/
+  for (int k = 0; k < hatsw.length; k++) {
+    hatsw[k].update();
+    hatsw[k].show();
+    hatsw[k].showArrow();
+  }
   wheels[0].update();
   axisValue = Axis[0]*wParmFFB[0]/2;
   //axisValue = sin(float(frameCount)/60.0*0.05*2.0*PI)*wParmFFB[0]/2; // testing
@@ -501,9 +519,9 @@ void drawWheelControll() {
     }
   }
   if (buttonpressed[7]) {
-    dialogs[0].update("WB: "+ wb + ", RB: " + fbmnstring);
+    dialogs[0].update("WB: "+ wb + ", RB: " + fbmnstring + "; " + str(rbt_ms) + "ms");
   } else {
-    dialogs[0].update("WB: "+ wb + ", RB: " + rb);
+    dialogs[0].update("WB: "+ wb + ", RB: " + rb + "; " + str(rbt_ms) + "ms");
   }
   dialogs[0].show();
   text(round(frameRate)+" fps", font_size/3, font_size);
@@ -572,8 +590,8 @@ void draw_labels() {
   pushMatrix();
   translate(width/3.5, height-159);
   text("Arduino FFB Wheel", 0, 0);
-  text("Control panel v1.9", 0, 20);
-  text("Miloš Ranković 2018-2021", 0, 40);
+  text("Control panel " + cpVer, 0, 20);
+  text("Miloš Ranković 2018-2022", 0, 40);
   text("ranenbg@gmail.com", 0, 60);
   popMatrix();
 }
@@ -611,8 +629,7 @@ void writeString(String input) {
 }
 
 String readString() {
-  if ( myPort.available() > 0) 
-  {  // If data is available,
+  if (myPort.available() > 0) { // if serial port data is available
     rb = myPort.readStringUntil(char(10));  // read till terminator char - LF (line feed) and store it in rb
     if (rb != null) { // if there is something in rb
       rb = rb.substring(0, (rb.indexOf(char(13)))); // remove last 2 chars - Arduino sends both CR+LF, char(13)+char(10)
@@ -626,25 +643,27 @@ String readString() {
 }
 
 void executeWR() {
+  rbt_ms = 0;
   writeString(wb);
   //delay(21); // no longer needed since improved read functions
   // serial read period I've set in arduino is every 10ms
   for (int i = 0; i <=9999; i++) { // but just in case (calibration), we give arduino more time up to 10s   
     if (readString() == "empty") {
+      rbt_ms++;
       delay(1);
     } else {
       break;
     }
   }
   fbmnstring = rb;
-  println("WB:"+ wb + ", RB:" + rb);
+  println("WB:"+ wb + ", RB:" + rb + "; " + str(rbt_ms) + "ms");
 }
 
 void refreshWheelParm() {
   myPort.clear();
   writeString("U");
   println("Wheel parameters:");
-  delay(60);
+  //delay(60); // no longer needed, improved readParmUntillEmpty()
   UpdateWparms(readParmUntillEmpty());
   if (bitRead(effstate, 4) == 1) {  // if FFB monitor is ON
     bitWrite(effstate, 4, false); // turn it OFF
@@ -665,7 +684,8 @@ void refreshWheelParm() {
   print(" ");
   print(lastCPR);
   print(" ");
-  println(int(pwmstate));
+  print(int(pwmstate));
+  println("; " + str(rbt_ms) + "ms");
   /*print(typepwm);
    print(" ");
    print(modepwm);
@@ -704,17 +724,17 @@ void UpdateWparms(String input) {
 String readParmUntillEmpty() { // reads untill empty and returns a string longer than 5 chars (non-FFB monitor data)
   String buffer = "";
   String temp = "";
+  rbt_ms = 0;
   for (int i=0; i<9999; i++) {
     temp = readString();
     if (temp != "empty") {
       if (temp.length() > 5) {
         buffer = temp;
         break;
-      } else {
-        //delay(1);
       }
     } else {
-      break;
+      rbt_ms++;
+      delay(1);
     }
   }
   return buffer;
@@ -1162,7 +1182,7 @@ int COMselector() {
           COMlist += "(" +char(j+'a') + ") " + Serial.list()[j];
           if (++j < i) COMlist += ",  ";
         }
-        COMx = showInputDialog(gpad + " at? (letter only)\n" + COMlist);
+        COMx = showInputDialog(frame, gpad + " at? (letter only)\n" + COMlist, "Setup - step 3/3", QUESTION_MESSAGE);
         if (COMx == null) exit();
         if (COMx.isEmpty()) exit();
         i = int(COMx.toLowerCase().charAt(0) - 'a') + 1;
@@ -1174,14 +1194,14 @@ int COMselector() {
       result = i-1;
       //exit();
     } else {
-      showMessageDialog(frame, "Device is not connected to the PC");
+      showMessageDialog(frame, "No COM port deviced detected.\n", "Warning", WARNING_MESSAGE);
       result = 0;
       //exit();
     }
   }
   catch (Exception e)
   { //Print the type of error
-    showMessageDialog(frame, "COM port is not available\ndoes not exist or may be\nin use by another program");
+    showMessageDialog(frame, "Selected COM port is not available,\ndoes not exist or may be in use by\nanother program.\n", "Setup Error", ERROR_MESSAGE);
     println("Error:", e);
     result = 0;
     //exit();
@@ -1277,4 +1297,30 @@ float maxAllowedDeg (float cpr) { // maximum allowed rotation degrees range for 
     temp = deg_max;
   }
   return temp;
+}
+
+void SetAxisColors() { // set default, load or save axis colors into a txt file
+  File ac = new File(dataPath("axisColor_cfg.txt"));
+  if (!ac.exists()) { // if file does not exist
+    for (int i=0; i<num_axis; i++) { // initialize default axis colors
+      axis_color[i] = color(i*48, 255, 255); // hue, saturation, brightness
+    }
+    String acset[] = {hex(axis_color[0]), hex(axis_color[1]), hex(axis_color[2]), hex(axis_color[3]), hex(axis_color[4])};
+    saveStrings("/data/axisColor_cfg.txt", acset);  // save axis colors in HEX form
+    println("axis colors: saved to txt");
+  } else { // load colors from txt
+    String[] newcolors = loadStrings("axisColor_cfg.txt");
+    for (int i=0; i<num_axis; i++) {
+      axis_color[i] = color(int(unhex(newcolors[i]))); //unhex returns int from string containing HEX number
+    }
+    println("axis colors: loaded from txt");
+  }
+}
+
+void showSetupText(String text) {
+  background(51);
+  pushMatrix();
+  translate(20, height-font_size);
+  text(text, 0, 0);
+  popMatrix();
 }

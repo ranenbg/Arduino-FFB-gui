@@ -1,13 +1,13 @@
 class Slajder {
-  int h;
+  color c;
   float x;
   float y;
   float s;
   float v;
   String l;
 
-  Slajder(int hue, float posx, float posy, float size, float value, String label) {
-    h = hue;
+  Slajder(color acolor, float posx, float posy, float size, float value, String label) {
+    c = acolor;
     x = posx;
     y = posy;
     s = size;
@@ -25,7 +25,7 @@ class Slajder {
 
   void show() {
     int value = round(map(axisValue, -1, 1, v, 0));
-    fill(h, 255, 255);
+    fill(c);
     strokeWeight(1);
     stroke(255);
     pushMatrix();

@@ -1,0 +1,31 @@
+=======================================================
+  GameControlPlus V1.2.2 created by
+  Christian Riekoff and Peter Lager
+=======================================================
+Instance: org.gamecontrolplus.ControlIO@54dd0999
+##########################################################################################
+                   Game Control Plus  - available devices
+                   --------------------------------------
+  0  Mouse     [Mouse]  on  [Unknown]
+  1  Keyboard     [Keyboard]  on  [Unknown]
+  2  Lenovo USB Keyboard     [Unknown]  on  [Unknown]
+  3  Lenovo USB Keyboard     [Unknown]  on  [Unknown]
+  4  Arduino Leonardo     [Stick]  on  [Unknown]
+##########################################################################################
+
+Device: Arduino Leonardo
+COM: searching...
+[0] "COM1"
+[1] "COM4"
+[2] "COM5"
+Arduino Leonardo at COM5
+config: saved
+axis colors: loaded from txt
+=======================================================
+   G4P V4.3.8 created by Peter Lager
+=======================================================
+Wheel parameters:
+1080.0 1.0 0.5 0.5 1.0 1.0 1.0 0.5 0.7 1.0 0.0 128.0 1 500 2400 9; 11ms
+WB:V, RB:fw-v170h; 1ms
+WB:V, RB:fw-v170h; 6ms
+ControlP5 2.2.6 infos, comments, questions at http://www.sojamo.de/libraries/controlP5
