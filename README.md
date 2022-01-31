@@ -7,7 +7,7 @@ The GUI is made in Processing v3.5.4 from scratch and requires lattest Java 8. I
 - sprites
 - control P5
 
-Processing IDE can be found here: https://processing.org/download
+Make sure that all pde files are located in the folder called wheel_control. Processing IDE can be found here: https://processing.org/download
 
 Screenshot of GUI v2.0
 ![plot](./data/Wheel_control_v2_0.png)
