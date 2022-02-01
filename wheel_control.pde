@@ -62,13 +62,16 @@ float brake_max = 255.0;
 boolean fbmnstp = false; // keeps track if we deactivated ffb monitor
 String fbmnstring; // string from ffb monitor readout
 String COMport[]; // string for serial port on which Arduino Leonardo is reported
-String fwVersion; // Arduino firmware version
 boolean LCenabled = false; // keeps track if load cell is enabled (3 digit fw's ending with 2)
+boolean DACenabled = false; // keeps track if FFB DAC output is implemented in firmware (3 digit fw's ending with 3)
 boolean checkFwVer = true; // when enabled update fwVersion will take place
-boolean enabledac, modedac; // keeps track of DAC settings
+boolean enabledac, modedac; // keeps track of DAC output settings
 boolean profileActuated = false; // keeps track if we pressed the profile selection
 boolean CPRlimit = false; // true if we input more than max allowed CPR
 int rbt_ms = 0; // read buffer response time in milliseconds
+String fwVerStr; // Arduino firmware version including the options
+int fwVerNum; // Arduino firmware version digits only
+byte fwOpt; // Arduino firmware options, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-unused, b7-unused)
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -344,6 +347,9 @@ void setup() {
   if (!LCenabled) {
     sliderlabel[11] = "FFB balance L/R";
     defParmFFB[11] = 128.0;
+  }
+  if (DACenabled) {
+    sliderlabel[10] = "Min torque DAC [%]";
   }
 
   //FFB graph
@@ -740,13 +746,12 @@ String readParmUntillEmpty() { // reads untill empty and returns a string longer
   return buffer;
 }
 
-int readFwVersion() { // reads firmware version from String and checks if load cell is enabled
+void readFwVersion() { // reads firmware version from String and checks if load cell is enabled, updates all options
   myPort.clear();
   wb = "V";
   delay(20);
   executeWR();
   String temp = rb;
-  int ver = 0;
   if (temp.length() <= 5) {
     // read all remaining data from FFB mon
     for (int i=0; i<20; i++) {
@@ -755,15 +760,43 @@ int readFwVersion() { // reads firmware version from String and checks if load c
     }
   }
   executeWR();
-  int len = rb.length()-4;
-  String fwDigits = rb.substring(4);
-  ver = int(float(fwDigits));
-  if (fwDigits.charAt(len-1) == '2') { // if last number is 2
+  fwVerStr = rb.substring(4); // first 4 chars are allways "fw-v", followed by 3 numbers
+  String fwTemp = fwVerStr;
+  String fwOpts = "0";
+  if (fwTemp.length() > 3) { // if there are any firmware options present
+    fwVerStr = fwTemp.substring(0, 3); // remove everything after numbers
+    fwOpts = fwTemp.substring(3, fwTemp.length());  // remove only numbers
+  }
+  fwVerNum = parseInt(fwVerStr);
+  fwOpt = decodeFwOpts(fwOpts);
+  String fwVerNumStr = str(fwVerNum);
+  int len = fwVerNumStr.length();
+  if (fwVerNumStr.charAt(len-1) == '2') { // if last number is 2
     LCenabled = true;
   } else {
     LCenabled = false;
   }
-  return ver;
+  if (fwVerNumStr.charAt(len-1) == '3') { // if last number is 3
+    DACenabled = true;
+  } else {
+    DACenabled = false;
+  }
+}
+
+byte decodeFwOpts (String fopt) {
+  byte temp = 0;
+  if (fopt != "0") { // has firmware options
+    for (int j=0; j<fopt.length(); j++) {
+      if (fopt.charAt(j) == 'a') temp = bitWrite(temp, 0, true); // b0=1, pedal autocalibration enabled
+      if (fopt.charAt(j) == 'z') temp = bitWrite(temp, 1, true); // b1=1, encoder z-index enabled
+      if (fopt.charAt(j) == 'h') temp = bitWrite(temp, 2, true); // b2=1, hat switch enabled
+      if (fopt.charAt(j) == 'i') temp = bitWrite(temp, 3, true); // b3=1, pedal averaging enabled
+      if (fopt.charAt(j) == 's') temp = bitWrite(temp, 4, true); // b4=1, external ADC enabled
+      if (fopt.charAt(j) == 'm') temp = bitWrite(temp, 5, true); // b5=1, ProMicro replacement pinouts
+    }
+  }
+  //println("fw opt: 0x" + hex(temp));
+  return temp;
 }
 
 void mousePressed() {
