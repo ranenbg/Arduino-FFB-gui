@@ -1,3 +1,26 @@
+/* Arduino Force Feedback Wheel User Interface
+
+  Copyright 2018-2022  Milos Rankovic (ranenbg [at] gmail [dot] com)
+
+  Permission to use, copy, modify, distribute, and sell this
+  software and its documentation for any purpose is hereby granted
+  without fee, provided that the above copyright notice appear in
+  all copies and that both that the copyright notice and this
+  permission notice and warranty disclaimer appear in supporting
+  documentation, and that the name of the author not be used in
+  advertising or publicity pertaining to distribution of the
+  software without specific, written prior permission.
+
+  The author disclaim all warranties with regard to this
+  software, including all implied warranties of merchantability
+  and fitness.  In no event shall the author be liable for any
+  special, indirect or consequential damages or any damages
+  whatsoever resulting from loss of use, data or profits, whether
+  in an action of contract, negligence or other tortious action,
+  arising out of or in connection with the use or performance of
+  this software.
+*/
+
 import org.gamecontrolplus.gui.*;
 import org.gamecontrolplus.*;
 import net.java.games.input.*;
@@ -129,7 +152,9 @@ Profile[] profiles = new Profile[num_profiles];
 void setup() {
   size(1440, 800, JAVA2D);
   colorMode (HSB);
-  //frameRate(100);
+  frameRate(100);
+  //noSmooth();
+  smooth(2);
   background(51);
   showSetupText("Configuring wheel control");
   File f = new File(dataPath("COM_cfg.txt"));
@@ -501,10 +526,10 @@ void drawWheelControll() {
   }
   for (int m = 0; m < ffbgraphs.length; m++) {
     if (buttonpressed[7]) {
-      for (int i=0; i<(gbuffer / frameRate)+1; i++) {
+      for (int i=0; i<ceil(gbuffer / frameRate); i++) {
         String temprb = readString();
         if (temprb != "empty") {
-          ffbgraphs[m].update(int(float(temprb)));
+          ffbgraphs[m].update(temprb);
         }
       }
       ffbgraphs[m].show();
@@ -515,7 +540,7 @@ void drawWheelControll() {
           String tempString = readString();
           if (tempString != "empty") {
             temprb = rb;
-            ffbgraphs[m].update(int(float(tempString)));
+            ffbgraphs[m].update(temprb);
           }
         }
         ffbgraphs[m].show();
@@ -672,8 +697,7 @@ void refreshWheelParm() {
   //delay(60); // no longer needed, improved readParmUntillEmpty()
   UpdateWparms(readParmUntillEmpty());
   if (bitRead(effstate, 4) == 1) {  // if FFB monitor is ON
-    bitWrite(effstate, 4, false); // turn it OFF
-    updateEffstate();
+    effstate = bitWrite(effstate, 4, false); // turn it OFF
     sendEffstate(); // send command to Arduino
   }
   //rb = " "; // do not clear rb
@@ -749,7 +773,7 @@ String readParmUntillEmpty() { // reads untill empty and returns a string longer
 void readFwVersion() { // reads firmware version from String and checks if load cell is enabled, updates all options
   myPort.clear();
   wb = "V";
-  delay(20);
+  //delay(20);
   executeWR();
   String temp = rb;
   if (temp.length() <= 5) {
@@ -1253,7 +1277,7 @@ public void handleSliderEvents(GValueControl slider, GEvent event) {
   if (sdrID != 0 && sdrID != 10 && sdrID != 11) { // for all sliders except for deg of rotation, min torque and brake pressure
     slider_value[sdrID] = slider.getValueF()*slider_max;
     wParmFFB [sdrID] = slider_value[sdrID];
-  } else if (sdrID == 0) { // for def of rotation slider 0 and min torque slider 10
+  } else if (sdrID == 0) { // for deg of rotation slider 0 and min torque slider 10
     slider_value[0] = round(slider.getValueF()*deg_max);
     if (slider_value[0] < deg_min) {
       slider_value[0] = deg_min;

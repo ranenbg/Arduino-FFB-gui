@@ -16,8 +16,8 @@ class FFBgraph {
     sclY = float(gh) / (2*maxTorque);
   }
 
-  void update(int val1) {
-    pointY[0] = val1;
+  void update(String val1) {
+    pointY[0] = parseInt(val1);
     for (int i=pointY.length-1; i>0; i--) {
       pointY[i] = pointY[i-1];
     }
@@ -32,8 +32,7 @@ class FFBgraph {
     stroke(255);
     rectMode(CORNER);
     rect(0, 0, gwidthX, gh); // graph frame
-    String indicator = str(pointY[0]);
-    text(indicator, (-indicator.length()*0.59-1.3)*font_size, gh/2+0.3*font_size); // zero indicator
+    text(pointY[0], (-str(pointY[0]).length()*0.59-1.3)*font_size, gh/2+0.3*font_size); // zero indicator
     //text(-maxTorque, -60, gh-5+0.3*font_size); // min ffb value indicator
     //text(maxTorque, -50, 5+0.3*font_size); // max ffb value indicator
     pushMatrix();
