@@ -6,7 +6,7 @@ Graphical user interface for controlling and monitoring all aspects of the **[Ar
 
 ![plot](./data/Wheel_control_v2_0.png)
 
-## Download - compiled EXE
+## Download - standalone app
 
 + ***[Latest Release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)***
 + ***[Past Versions](https://github.com/ranenbg/Arduino-FFB-gui/releases)***
