@@ -4,7 +4,7 @@ Graphical user interface for controlling and monitoring all aspects of the **[Ar
 
 ### Screenshot of GUI v2.0
 
-![plot](./data/Wheel_control_v2_0.png)
+
 
 ## Download - standalone app
 
