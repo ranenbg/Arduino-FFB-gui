@@ -1,25 +1,25 @@
-/* Arduino Force Feedback Wheel User Interface
-
-  Copyright 2018-2022  Milos Rankovic (ranenbg [at] gmail [dot] com)
-
-  Permission to use, copy, modify, distribute, and sell this
-  software and its documentation for any purpose is hereby granted
-  without fee, provided that the above copyright notice appear in
-  all copies and that both that the copyright notice and this
-  permission notice and warranty disclaimer appear in supporting
-  documentation, and that the name of the author not be used in
-  advertising or publicity pertaining to distribution of the
-  software without specific, written prior permission.
-
-  The author disclaim all warranties with regard to this
-  software, including all implied warranties of merchantability
-  and fitness.  In no event shall the author be liable for any
-  special, indirect or consequential damages or any damages
-  whatsoever resulting from loss of use, data or profits, whether
-  in an action of contract, negligence or other tortious action,
-  arising out of or in connection with the use or performance of
-  this software.
-*/
+/*Arduino Force Feedback Wheel User Interface
+ 
+ Copyright 2018-2022  Milos Rankovic (ranenbg [at] gmail [dot] com)
+ 
+ Permission to use, copy, modify, distribute, and sell this
+ software and its documentation for any purpose is hereby granted
+ without fee, provided that the above copyright notice appear in
+ all copies and that both that the copyright notice and this
+ permission notice and warranty disclaimer appear in supporting
+ documentation, and that the name of the author not be used in
+ advertising or publicity pertaining to distribution of the
+ software without specific, written prior permission.
+ 
+ The author disclaim all warranties with regard to this
+ software, including all implied warranties of merchantability
+ and fitness.  In no event shall the author be liable for any
+ special, indirect or consequential damages or any damages
+ whatsoever resulting from loss of use, data or profits, whether
+ in an action of contract, negligence or other tortious action,
+ arising out of or in connection with the use or performance of
+ this software.
+ */
 
 import org.gamecontrolplus.gui.*;
 import org.gamecontrolplus.*;
@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.0"; // control panel version
+String cpVer="v2.1"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -77,11 +77,13 @@ boolean typepwm, modepwm; // keeps track of PWM settings
 int freqpwm; // keeps track of PWM frequency index selection
 int minTorque, maxTorque, maxTorquedef; // min, max ffb value or PWM steps
 int curCPR, lastCPR, CPRdef;
-float deg_min = 30.0;
-float deg_max = 1800.0;
-float minPWM_max = 20.0;
-float brake_min = 1.0;
-float brake_max = 255.0;
+int maxCPR = 99999; // maximum acceptable CPR by firmware
+float deg_min = 30.0; // minimal allowed angle by firmware
+float deg_max = 1800.0; // maximal allowed angle by firmware
+int maxCPR_turns = maxCPR*int(deg_max/360.0); // maximum acceptable CPRxturns by firmware
+float minPWM_max = 20.0; // maximum allowed value for minPWM
+float brake_min = 1.0; // minimal brake pressure
+float brake_max = 255.0; // max brake pressure
 boolean fbmnstp = false; // keeps track if we deactivated ffb monitor
 String fbmnstring; // string from ffb monitor readout
 String COMport[]; // string for serial port on which Arduino Leonardo is reported
@@ -95,6 +97,7 @@ int rbt_ms = 0; // read buffer response time in milliseconds
 String fwVerStr; // Arduino firmware version including the options
 int fwVerNum; // Arduino firmware version digits only
 byte fwOpt; // Arduino firmware options, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-unused, b7-unused)
+int Xoffset = -44; // X-axis offset for buttons
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -243,22 +246,20 @@ void setup() {
 
   dialogs[0] = new Dialog(0.05*width, height-posY*1.85+3*28, 16, "waiting input..");
 
-  int Xoffset = -44;
-
   // general control buttons
-  buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center");
-  buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default");
-  buttons[2] = new Button(width/3.7 + 2*60, height-posY+31, 50, 16, "recalib");
-  buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save");
-  buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm");
-  buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store");
+  buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center", "set as 0deg", 0);
+  buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default FFB settings", 0);
+  buttons[2] = new Button(width/3.7 + 2*60, height-posY+31, 70, 16, "recalibrate", "pedals", 3);
+  buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save FFB settings to arduino", 0);
+  buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "save pwm to arduino (restart required)", 0);
+  buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "current profile to PC", 0);
 
   // optional ffb effect on/off buttons
-  buttons[3] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+8)-12, 16, 16, " ");
-  buttons[4] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+2)-12, 16, 16, " ");
-  buttons[5] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+7)-12, 16, 16, " ");
-  buttons[6] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+3)-12, 16, 16, " ");
-  buttons[7] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+1)-12, 16, 16, " ");
+  buttons[3] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+8)-12, 16, 16, " ", "autocenter spring", 3);
+  buttons[4] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+2)-12, 16, 16, " ", "user damper", 3);
+  buttons[5] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+7)-12, 16, 16, " ", "user inertia", 3);
+  buttons[6] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+3)-12, 16, 16, " ", "user friction", 3);
+  buttons[7] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+1)-12, 16, 16, " ", "FFB monitor", 3);
 
   //keys
   keys[0] = "r";
@@ -386,6 +387,7 @@ void setup() {
     .setSize(45, 18)
     .setPosition(int(width/3.65) - 15 +  0.0*60, height-posY+30)
     .setValue(lastCPR)
+    .setRange(0, maxCPR)
     ;               
   makeEditable(num1);
 
@@ -476,6 +478,7 @@ void draw() {
 }
 
 void drawWheelControll() {
+  //SquareAroundButtons();
   draw_labels();
   /*for (int j = 0; j < btnToggle.length; j++) {
    handleToggleButtonEvents(btnToggle[j], j);
@@ -1340,16 +1343,16 @@ void listProfiles() {
 
 int maxAllowedCPR (float deg) { // maximum allowed CPR for any gived rotation degrees range
   int temp = 0;
-  temp = int(65535.0/(deg/360.0));
-  if (temp >= 32767) {
-    temp = 32767;
+  temp = int((float(maxCPR_turns))/(deg/360.0));
+  if (temp >= maxCPR) {
+    temp = maxCPR;
   }
   return temp;
 }
 
 float maxAllowedDeg (float cpr) { // maximum allowed rotation degrees range for any given encoder CPR
   float temp = 0.0;
-  temp = 65535.0/(cpr/360.0);
+  temp = float(maxCPR_turns)/(cpr/360.0);
   if (temp >= deg_max) {
     temp = deg_max;
   }
@@ -1373,6 +1376,15 @@ void SetAxisColors() { // set default, load or save axis colors into a txt file
     println("axis colors: loaded from txt");
   }
 }
+
+/*void SquareAroundButtons() {
+ strokeWeight(1);
+ stroke(120);
+ noFill();
+ rect(Xoffset+width/2 + 1.5*60, height-posY+140, 274, 20); // for pwm
+ rect(Xoffset+width/2 + 6.3*60, height-posY+140, 120, 20); // for for default, save
+ rect(Xoffset+width/2 + 8.5*60, height-posY+140, 138, 20); // for for store
+ }*/
 
 void showSetupText(String text) {
   background(51);
