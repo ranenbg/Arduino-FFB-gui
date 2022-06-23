@@ -1,10 +1,10 @@
 Milos Rankovic
 ranenbg@gmail.com
-28.01.2022.
-wheel control v2.0 - only compatible with Arduino HEX versions v170 and newer
+23.06.2022.
+wheel control v2.1 - compatible with Arduino HEX versions v190 and newer (backward compatible with v170 and v180)
 
 About:
-Wheel control is made in windows programming environment called Processing v3.5.4, which is based on Java. It opperartes by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup.
+Wheel control GUI is made in windows programming environment called Processing v3.5.4, which is based on Java. It opperartes by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup. Arduino firmware and GUI are developed and tested in Win10.
 You can use Arduino Leonardo, Arduino Micro or Arduino Pro Micro boards. They need to have a correct bootloader. You can verify by pressing restart button, if the Arduino enters bootloader mode for about 8sec it is ok, LED will slowly blink during this time. If it instantly restarts you will need to upload bootloader. Complete description of that procedure is outside of the scope of this manual (https://www.arduino.cc/en/Tutorial/BuiltInExamples/ArduinoISP).
 
 How to start wheel control:
@@ -30,7 +30,7 @@ Use overall gain to set the master volume or gain for all FFB effects. You may u
 The button next to overall gain is for enabling/disabling real time FFB monitor graph. It is extremely usefull for troubleshooting or fine tunning your FFB settings in the game and finding the point of clipping. It is directly showing an FFB signal over COM port, that a game is sending in 1sec time window. It is recommended not to keep it always on, its purpose is only for FFB signal inspection and making sure there is no clipping. Once you are happy wiht your FFB, disable the FFB monitor, not to cause any delays due to COM data transfer.
 New feature is profile selector. Select one of the empty slots first. Make changes to the FFB settings as you wish and click store button. Type some name and click ok. This will save a profile into a txt file. Wheel control will look for any existing profiles at each start up, so you can load it. Note that PWM settings are not stored and loaded from a profile config.
 
-Additional startup troubleshooting has been added in v2.0, such that startup problems will be easier to diagnose. Window is no longer white, and it shows some advanced setup info.
+Additional startup troubleshooting has been added from v2.0, such that startup problems will be easier to diagnose. Window is no longer white, and it shows some advanced setup info.
 
 Axis color setup:
 The axis colors are stored in a axisColor.txt file in a HEX format. This file will be created at startup with default values if it does not already exist. If it exists then the axis colors will be loaded from it. First two letters are alpha channel, so you can leave this at FF and fill in the remaining 6 numbers. In following link you can get those 6 HEX numbers from RGB values.
