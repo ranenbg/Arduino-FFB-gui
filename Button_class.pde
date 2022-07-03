@@ -5,6 +5,7 @@ class Button {
   float sx, sy;
   String t, d;
   boolean showInfo;
+  boolean active;
 
   Button(float posx, float posy, float sizex, float sizey, String text, String description, int descriptionPos) {
     x = posx;
@@ -15,30 +16,39 @@ class Button {
     d = description;
     dp = descriptionPos; // 0-up, 1-down, 2-left, 3-right
     showInfo = false;
+    active = true;
   }
 
   void update(int i) {
-    if (mouseX >= x && mouseX <= x+sx && mouseY >= y && mouseY <= y+sy) {
-      controlb[i] = true;
+    if (active) {
+      if (mouseX >= x && mouseX <= x+sx && mouseY >= y && mouseY <= y+sy) {
+        controlb[i] = true;
+      } else {
+        controlb[i] = false;
+      }
+      if (controlb[i] && mousePressed || buttonpressed[i] ) { // green with black text (activated)
+        col[0] = 96;
+        col[1] = 200;
+        col[2] = 150;
+        thue = 0;
+        showInfo = false;
+      } else if (controlb[i] && !mousePressed) { // yellow with white text (howered)
+        col[0] = 40;
+        col[1] = 200;
+        col[2] = 180;
+        thue = 255;
+        showInfo = true;
+      } else if (!controlb[i]) { // red with white text (deactivated)
+        col[0] = 0;
+        col[1] = 200;
+        col[2] = 150;
+        thue = 255;
+        showInfo = false;
+      }
     } else {
-      controlb[i] = false;
-    }
-    if (controlb[i] && mousePressed || buttonpressed[i] ) { // green with black text (activated)
-      col[0] = 96;
-      col[1] = 200;
-      col[2] = 150;
-      thue = 0;
-      showInfo = false;
-    } else if (controlb[i] && !mousePressed) { // yellow with white text (howered)
-      col[0] = 40;
-      col[1] = 200;
-      col[2] = 180;
-      thue = 255;
-      showInfo = true;
-    } else if (!controlb[i]) { // red with white text (deactivated)
       col[0] = 0;
-      col[1] = 200;
-      col[2] = 150;
+      col[1] = 0;
+      col[2] = 100;
       thue = 255;
       showInfo = false;
     }

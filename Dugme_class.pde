@@ -170,14 +170,10 @@ class Dugme {
 
   void show(int i) {
     int hue;
-    if (buttonValue == true) {
+    if (buttonValue) {
       hue = 64;
-      //print(1);
-      //print(" ");
     } else {
       hue = 0;
-      //print(0);
-      //print(" ");
     }
     fill(hue, 255, 255);
     strokeWeight(1);

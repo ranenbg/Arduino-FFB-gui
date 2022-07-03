@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.1"; // control panel version
+String cpVer="v2.2"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -48,7 +48,8 @@ Numberbox num1; // create instance of numberbox class
 
 int num_sldr = 12; //number of FFB sliders
 int num_btn = 24;  //number of wheel buttons
-int cntl_btn = 11; //number of controll buttons
+int ctrl_btn = 13; //number of control buttons
+int ctrl_sh_btn = 5; //number of control buttons for XY shifter
 int key_btn = 11;  //number of keyboard function buttons
 int gbuffer = 500; //number of points to show in ffb graph
 int gskip = 8; //ffb monitor graph vertical divider
@@ -67,7 +68,7 @@ boolean moved = false; // keep track if wheel axis is used
 float prevaxis = 0.0; // previous steer axis value 
 int[] col = new int[3]; // colors for control buttons, hsb mode
 int thue; // color for text of control button, gray scale mode
-boolean[] buttonpressed = new boolean[cntl_btn]; // true if button is pressed
+boolean[] buttonpressed = new boolean[ctrl_btn]; // true if button is pressed
 String[] description = new String[key_btn]; // keyboard button function description
 String[] keys = new String[key_btn]; // keyboard buttons
 boolean enableinfo = true;
@@ -87,8 +88,8 @@ float brake_max = 255.0; // max brake pressure
 boolean fbmnstp = false; // keeps track if we deactivated ffb monitor
 String fbmnstring; // string from ffb monitor readout
 String COMport[]; // string for serial port on which Arduino Leonardo is reported
-boolean LCenabled = false; // keeps track if load cell is enabled (3 digit fw's ending with 2)
-boolean DACenabled = false; // keeps track if FFB DAC output is implemented in firmware (3 digit fw's ending with 3)
+boolean LCenabled = false; // keeps track if load cell is supported (3 digit fw's ending with 2)
+boolean DACenabled = false; // keeps track if FFB DAC output is supported in firmware (3 digit fw's ending with 3)
 boolean checkFwVer = true; // when enabled update fwVersion will take place
 boolean enabledac, modedac; // keeps track of DAC output settings
 boolean profileActuated = false; // keeps track if we pressed the profile selection
@@ -96,8 +97,11 @@ boolean CPRlimit = false; // true if we input more than max allowed CPR
 int rbt_ms = 0; // read buffer response time in milliseconds
 String fwVerStr; // Arduino firmware version including the options
 int fwVerNum; // Arduino firmware version digits only
-byte fwOpt; // Arduino firmware options, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-unused, b7-unused)
+byte fwOpt; // Arduino firmware options, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
 int Xoffset = -44; // X-axis offset for buttons
+boolean XYshifterEnabled = false; // keeps track if XY analog shifter is supported by firmware
+int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
+String[] shCommand = new String[ctrl_sh_btn+3]; // commands for XY shifter settings
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -116,7 +120,7 @@ boolean buttonValue = false;
 int[] Dpad = new int[8];
 int hatvalue;
 // control buttons
-boolean[] controlb = new boolean[cntl_btn]; // true as long as mouse is howered over
+boolean[] controlb = new boolean[ctrl_btn+ctrl_sh_btn]; // true as long as mouse is howered over
 
 PFont font;
 int font_size = 12;
@@ -147,10 +151,11 @@ Dugme[] dugmici = new Dugme[num_btn];
 HatSW[] hatsw = new HatSW[1];
 //Graph[] graphs = new Graph [1];
 Dialog[] dialogs = new Dialog [1];
-Button[] buttons = new Button[cntl_btn];
+Button[] buttons = new Button[ctrl_btn];
 Info[] infos = new Info[key_btn];
 FFBgraph[] ffbgraphs = new FFBgraph[1];
 Profile[] profiles = new Profile[num_profiles];
+XYshifter[] shifters = new XYshifter[1];
 
 void setup() {
   size(1440, 800, JAVA2D);
@@ -249,10 +254,12 @@ void setup() {
   // general control buttons
   buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center", "set as 0deg", 0);
   buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default FFB settings", 0);
-  buttons[2] = new Button(width/3.7 + 2*60, height-posY+31, 70, 16, "recalibrate", "pedals", 3);
+  buttons[2] = new Button(width/3.7 + 3.1*60, height-posY+31, 70, 16, "recalibrate", "pedals", 1);
   buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save FFB settings to arduino", 0);
   buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "save pwm to arduino (restart required)", 0);
   buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "current profile to PC", 0);
+  buttons[11] = new Button(width/3.7 + 1.1*60, height-posY+31, 50, 16, "shifter", "calibration", 1);
+  buttons[12] = new Button(width/3.7 + 2.2*60, height-posY+31, 16, 16, " ", "set r to 8th+button0", 1);
 
   // optional ffb effect on/off buttons
   buttons[3] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+8)-12, 16, 16, " ", "autocenter spring", 3);
@@ -347,7 +354,7 @@ void setup() {
   CPRdef = 2400;
   pwmstatedef = 9;
 
-  // commands for adjusting wheel FFB parameters
+  // commands for adjusting FFB parameters
   command[0] = "G ";
   command[1] = "FG ";
   command[2] = "FD ";
@@ -360,6 +367,15 @@ void setup() {
   command[9] = "FB ";
   command[10] = "FJ ";
   command[11] = "B ";
+  // XY shifter related commands
+  shCommand[0] = "HA ";
+  shCommand[1] = "HB ";
+  shCommand[2] = "HC ";
+  shCommand[3] = "HD ";
+  shCommand[4] = "HE ";
+  shCommand[5] = "HF ";
+  shCommand[6] = "HG";
+  shCommand[7] = "HR";
 
   //btnToggle[0] = new GImageToggleButton(this, 10+1*(slider_width+20), slider_height/2+20);
   //btnToggle[1] = new GImageToggleButton(this, 10+3*(slider_width+20), slider_height/2+20);
@@ -376,6 +392,23 @@ void setup() {
   }
   if (DACenabled) {
     sliderlabel[10] = "Min torque DAC [%]";
+  }
+  shifters[0] = new XYshifter(width/3.65-16, height-posY-500, 0.25);
+  if (XYshifterEnabled) {
+    buttons[11].active = true;
+    buttons[12].active = true;
+    refreshXYshifterCal(); // get shifter calibration config from arduino
+    shifters[0].updateCal(rb);
+    if (bitRead(shifters[0].sConfig, 1) == 1) {
+      buttonpressed[12] = true;
+    } else {
+      buttonpressed[12] = false;
+    }
+    wb = "v";
+    executeWR();
+  } else {
+    buttons[11].active = false;
+    buttons[12].active = false;
   }
 
   //FFB graph
@@ -519,7 +552,6 @@ void drawWheelControll() {
    graphs[i].update();
    //graphs[i].show();
    }*/
-
   for (int k = 0; k < buttons.length; k++) {
     buttons[k].update(k);
     buttons[k].show();
@@ -562,6 +594,22 @@ void drawWheelControll() {
   if (CPRlimit) {
     num1.setValue(maxAllowedCPR(wParmFFBprev[0]));
     CPRlimit = false;
+  }
+  if (!buttonpressed[7]) { // only available if ffb monitor is not enabled
+    if (XYshifterEnabled) buttons[11].active = true; // re-enable only if firmware supports it
+    if (XYshifterEnabled) buttons[12].active = true; 
+    if (buttonpressed[11]) { // if we pressed shifter button
+      refreshXYshifterPos(); // get new shifter XY position from arduino
+      shifters[0].updatePos(); // update new shifter XY position
+      shifters[0].setCal(); // actuate cal sliders and update limits
+      shifters[0].show(); // display shifter - cal sliders, limits and xy shifter position
+      buttons[7].active = false; // disable ffb monitor while we configure XY shifter
+    } else {
+      buttons[7].active = true; // re-enable ffb monitor if we are not configuring XY shifter
+    }
+  } else {
+    buttons[11].active = false; // disable XY shifter button while we are running ffb monitor
+    buttons[12].active = false;
   }
 }
 
@@ -808,6 +856,10 @@ void readFwVersion() { // reads firmware version from String and checks if load 
   } else {
     DACenabled = false;
   }
+  if (bitRead(fwOpt, 7) == 1) { // if bit7 is HIGH (xy shifter bit)
+    XYshifterEnabled = true;
+  }
+  if (bitRead(fwOpt, 0) == 0) buttons[2].active = false; // if bit0 is LOW (no pedal autocalibration available)
 }
 
 byte decodeFwOpts (String fopt) {
@@ -820,6 +872,8 @@ byte decodeFwOpts (String fopt) {
       if (fopt.charAt(j) == 'i') temp = bitWrite(temp, 3, true); // b3=1, pedal averaging enabled
       if (fopt.charAt(j) == 's') temp = bitWrite(temp, 4, true); // b4=1, external ADC enabled
       if (fopt.charAt(j) == 'm') temp = bitWrite(temp, 5, true); // b5=1, ProMicro replacement pinouts
+      if (fopt.charAt(j) == 't') temp = bitWrite(temp, 6, true); // b6=1, 4x4 button matrix enabled
+      if (fopt.charAt(j) == 'f') temp = bitWrite(temp, 7, true); // b7=1, XY analog shifter enabled
     }
   }
   //println("fw opt: 0x" + hex(temp));
@@ -880,6 +934,39 @@ void mouseReleased() {
     profiles[cur_profile].upload(); // update last FFB settings to a profile
     profiles[cur_profile].storeToFile("profile"+str(cur_profile));
     cp5.get(ScrollableList.class, "profile").setLabel(profiles[cur_profile].name);
+  }
+  if (controlb[11]) { // if we pressed shifter button
+    ActuateButton(11);
+  }
+  if (controlb[12]) { // if we pressed shifter config button
+    ActuateButton(12);
+    if (buttonpressed[12]) { // if pressed
+      shifters[0].sConfig = bitWrite(shifters[0].sConfig, 1, true); // set sConfig bit1 HIGH - 8 gear mode
+    } else { // if unpressed
+      shifters[0].sConfig = bitWrite(shifters[0].sConfig, 1, false); // set sConfig bit1 LOW - 6 gear mode
+    }
+    wb = shCommand[5] + str(shifters[0].sConfig);
+    executeWR();
+  }
+  if (controlb[ctrl_btn+0]) { // if we pressed shifter calibration slider a
+    wb = shCommand[0] + str(int(shifters[0].sCal[0]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+1]) { // if we pressed shifter calibration slider b
+    wb = shCommand[1] + str(int(shifters[0].sCal[1]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+2]) { // if we pressed shifter calibration slider c
+    wb = shCommand[2] + str(int(shifters[0].sCal[2]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+3]) { // if we pressed shifter calibration slider d
+    wb = shCommand[3] + str(int(shifters[0].sCal[3]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+4]) { // if we pressed shifter calibration slider e
+    wb = shCommand[4] + str(int(shifters[0].sCal[4]));
+    executeWR();
   }
   updateEffstate (); // update effstate each time a button is realised
   if (effstate != effstateprev) { // send only if a change was made
@@ -1392,4 +1479,20 @@ void showSetupText(String text) {
   translate(20, height-font_size);
   text(text, 0, 0);
   popMatrix();
+}
+
+void refreshXYshifterPos() {
+  wb = shCommand[7];
+  executeWR();
+}
+void refreshXYshifterCal() {
+  wb = shCommand[6];
+  executeWR();
+}
+
+void updateLastShifterConfig() { // update curent shifter cal and config values
+  for (int i=0; i<shifterLastConfig.length; i++) {
+    shifterLastConfig[i] = int(shifters[0].sCal[i]); // XY shifter calibration values
+  }
+  shifterLastConfig[5] = int(shifters[0].sConfig); // XY shifter configuration
 }
