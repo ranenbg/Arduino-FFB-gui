@@ -1,6 +1,6 @@
 Milos Rankovic
 ranenbg@gmail.com
-03.07.2022.
+10.07.2022.
 wheel control v2.2 - compatible with Arduino HEX versions v190 and newer (backward compatible with v170 and v180)
 
 About:
@@ -37,7 +37,7 @@ The axis colors are stored in a axisColor.txt file in a HEX format. This file wi
 https://www.rapidtables.com/convert/color/rgb-to-hex.html
 
 XY analog shifter setup:
-This version of wheel control allows you to setup an analog shifter. The shifter supports 8 gears + reverse, while you can edit its calibration limits by pressing "shifter" button. There are 5 pointers (sliders) which you can move with mouse by dragging. Make sure to unpress mouse left button while the cursor is still inside the pointer in order for change to take place. Once happy, you can click "save" button to store shifter calibration to Arduino (save values in EEPROM). Next to the shifter button you to configure where you want a reverse gear to be. If the small button is red (not activated) the shifter is configured to 6 gears + reverse, while if the button is green (activated) then the reverse is in 8th gear. To activate reverse gear you need to press button0 (by default it's at Arduino pin D4, but may be elsewhere depending on firmware version and options).
+This version of wheel control allows you to setup an analog shifter. The shifter supports 8 gears + reverse, while you can edit its calibration limits by pressing "shifter" button. There are 5 pointers (sliders) which you can move with mouse by dragging. Make sure to release mouse left button while the cursor is still inside the pointer in order for change to take place. Once happy, you can click "save" button to store shifter calibration to Arduino (save values in EEPROM). There is an additional button that allows you to configure where a reverse gear will be. If the small button is red (not activated) the shifter is configured to 6 gears + reverse, while if the button is green (activated) then the reverse is in 8th gear. To activate reverse gear you need to press button0 (by default it's at Arduino pin D4, but may be elsewhere depending on firmware version and options).
 
 Hopefully everything else will be self explanatory, enjoy :)
 rane.

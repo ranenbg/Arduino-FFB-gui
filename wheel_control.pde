@@ -102,6 +102,7 @@ int Xoffset = -44; // X-axis offset for buttons
 boolean XYshifterEnabled = false; // keeps track if XY analog shifter is supported by firmware
 int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
 String[] shCommand = new String[ctrl_sh_btn+3]; // commands for XY shifter settings
+int[] xysParmDef = new int [6]; // XY shifter defaults
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -353,6 +354,12 @@ void setup() {
   maxTorquedef = 500;
   CPRdef = 2400;
   pwmstatedef = 9;
+  xysParmDef[0] = 255;
+  xysParmDef[1] = 511;
+  xysParmDef[2] = 767;
+  xysParmDef[3] = 255;
+  xysParmDef[4] = 511;
+  xysParmDef[5] = 2; // reverse in 6th gear
 
   // commands for adjusting FFB parameters
   command[0] = "G ";
@@ -404,7 +411,7 @@ void setup() {
     } else {
       buttonpressed[12] = false;
     }
-    wb = "v";
+    wb = "V";
     executeWR();
   } else {
     buttons[11].active = false;
@@ -1094,6 +1101,13 @@ void setDefaults() {
   }
   if (lastCPR != CPRdef) {
     num1.setValue(CPRdef); // update the numberbox with the new value
+  }
+  if (XYshifterEnabled) { // if firmware supports shifter - load its default values
+    for (int i=0; i<xysParmDef.length; i++) {
+      wb = shCommand[i] + " " + xysParmDef[i]; 
+      executeWR();
+    }
+    shifters[0].updateCal(str(xysParmDef[0])+" "+str(xysParmDef[1])+" "+str(xysParmDef[2])+" "+str(xysParmDef[3])+" "+str(xysParmDef[4])+" "+str(xysParmDef[5]));
   }
 }
 
