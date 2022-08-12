@@ -1,7 +1,7 @@
 Milos Rankovic
 ranenbg@gmail.com
-10.07.2022.
-wheel control v2.2 - compatible with Arduino HEX versions v190 and newer (backward compatible with v170 and v180)
+12.08.2022.
+wheel control v2.3 - compatible with Arduino HEX versions v200 and newer (backward compatible with v170, v180 and v190)
 
 About:
 Wheel control GUI is made in windows programming environment called Processing v3.5.4, which is based on Java. It opperartes by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup. Arduino firmware and GUI are developed and tested in Win10.
@@ -21,9 +21,9 @@ How to use wheel control:
 [1] set desired Rotation degrees
 [2] manually align your wheel to center position, press center and then save button
 [3] select PWM type (phase correct is recommended, but you can use fast top for twice higher frequency at the same resolution)
-[4] select PWM mode (pwm+dir or pwm+- are available)
+[4] select PWM mode (pwm+-, pwm+dir or pwm0.50.100-use fast top with this mode)
 [5] select PWM frequency (check firmware_info.txt for more details)
-[6] press pwm button and close wheel control, Arduino will need a restart to apply new PWM settings
+[6] press pwm button and close wheel control, restart or replug Arduino to apply new PWM settings, start wheel control
 
 The utility supports user effects or sometimes called desktop effects. These are "allways on" effects that will be added to any other FFB effects which other games or application may send. You may enable certain desktop effects like spring, damper, inertia or friction by pressing a square button next to the corresponding slider. These effects may be usefull for DD wheels, to simulate some liveliness of AC motor like moment of inertia (inertia gain), autocentering (spring gain) or friction (friction gain).
 Use overall gain to set the master volume or gain for all FFB effects. You may use min PWM slider to compensate for startup current and system friction when using other motor types than AC servo motors. It is very usefull for DC brushed motors especially.
@@ -38,6 +38,9 @@ https://www.rapidtables.com/convert/color/rgb-to-hex.html
 
 XY analog shifter setup:
 This version of wheel control allows you to setup an analog shifter. The shifter supports 8 gears + reverse, while you can edit its calibration limits by pressing "shifter" button. There are 5 pointers (sliders) which you can move with mouse by dragging. Make sure to release mouse left button while the cursor is still inside the pointer in order for change to take place. Once happy, you can click "save" button to store shifter calibration to Arduino (save values in EEPROM). There is an additional button that allows you to configure where a reverse gear will be. If the small button is red (not activated) the shifter is configured to 6 gears + reverse, while if the button is green (activated) then the reverse is in 8th gear. To activate reverse gear you need to press button0 (by default it's at Arduino pin D4, but may be elsewhere depending on firmware version and options).
+
+Manual pedal axis calibration
+In this version you can manual set pedal axis calibration limits and save them into Arduino EEPROM. The calibration values are automatically loaded at each powerup of Arduino. Each time you start wheel control it will ask Arduino for latest calibration values and update the sliders accordingly. In order to set calibration limits first press "manual cal" button to unhide the calibration sliders. Move sliders to ther lowest (0) and maximum (4095) positions if they are not already there. Now press each pedal to its full range and set its corresponding maximum slider to a value slightly below the pedal axis value. Once done, now move back each pedal into ther lowest position and set the minimim slider to a value slightly above the pedal axis value. Pedal axis values should show a full range 0-4095 if done correctly. Once happy with your pedal travel and calibration limits you can press "save" button.
 
 Hopefully everything else will be self explanatory, enjoy :)
 rane.

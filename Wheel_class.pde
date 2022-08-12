@@ -12,16 +12,9 @@ class Wheel {
     wl = wheel_label;
   }
 
-  void update() {
-    Axis[0] = gpad.getSlider("Xaxis").getValue();
-    //Axis[1] = gpad.getSlider("Yaxis").getValue();
-    //Axis[2] = -gpad.getSlider("Xrotation").getValue();
-    //Axis[3] = gpad.getSlider("Yrotation").getValue();
-    //Axis[4] = gpad.getSlider("Zrotation").getValue();
-    if (Axis[0] != prevaxis) {
-      moved = true;
-    }
-    rotRad = axisValue/180.0*PI; // in radians
+  void update(float angle) {
+    rotDeg = angle; // wheel angle in degrees
+    rotRad = rotDeg/180.0*PI; // wheel angle in radians
   }
 
   void show() {
@@ -32,7 +25,7 @@ class Wheel {
     pushMatrix();
     textSize(16);
     fill(255);
-    text(wl, -22, -scale/2-16);
+    text(wl, -22, -axisScale/2-16);
     textSize(font_size);
     popMatrix();
     rotate(rotRad);
@@ -49,11 +42,11 @@ class Wheel {
     rect(-s/32, -s/2, s/16, (1-wd)/2*s); // center stripe
     popMatrix();
   }
-  void showDeg(float deg) {
+  void showDeg() {
     pushMatrix();
     fill(255);
     translate(x, y);
-    text(FormatText(deg)+"°", scale/2-40, scale/2+20);
+    text(FormatText(rotDeg)+"°", axisScale/2-40, axisScale/2+20);
     //text(deg+"°", scale/2-40, scale/2+20);
     popMatrix();
   }

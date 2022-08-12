@@ -201,40 +201,7 @@ class XYshifter {
       xycals[j].showPointer(dx, dy);
     }
   }
-  /*void updatesCalLimit(int i) { // update shifter calibration values
-   float sl = 0; // min distance between limits
-   if (i == 0) {
-   if (sCal[i] <= (lx/2+sl)/s) { // if a <= 0
-   sCal[i] = (lx/2+sl)/s;
-   } else if (sCal[i] >= sCal[i+1] - (lx+sl)/s) {  // if a >= b
-   sCal[i] = sCal[i+1] - (lx+sl)/s;
-   }
-   } else if (i == 1) {
-   if (sCal[i] <= sCal[i-1] + (lx+sl)/s) { // if b <= a
-   sCal[i] = sCal[i-1] + (lx+sl)/s;
-   } else if (sCal[i] >= sCal[i+1] - (lx+sl)/s) { // if b >= c
-   sCal[i] = sCal[i+1] - (lx+sl)/s;
-   }
-   } else if (i == 2) {
-   if (sCal[i] <= sCal[i-1] + (lx+sl)/s) { // if c <= b
-   sCal[i] = sCal[i-1] + (lx+sl)/s;
-   } else if (sCal[i] >= 1023.0 - (lx/2+sl)/s) { // if c >= 1023
-   sCal[i] = 1023.0 - (lx/2+sl)/s;
-   }
-   } else if (i == 3) {
-   if (sCal[i] <= (ly/2+sl)/s) { // if d <= 0
-   sCal[i] = (ly/2+sl)/s;
-   } else if (sCal[i] >= sCal[i+1] - (ly+sl)/s) {  // if d >= e
-   sCal[i] = sCal[i+1] - (ly+sl)/s;
-   }
-   } else if (i == 4) {
-   if (sCal[i] <= sCal[i-1] + (ly+sl)/s) { // if e <= d
-   sCal[i] = sCal[i-1] + (ly+sl)/s;
-   } else if (sCal[i] >= 1023.0 - (ly/2+sl)/s) { // if e >= 1023
-   sCal[i] = 1023.0 - (ly/2+sl)/s;
-   }
-   }
-   }*/
+
   void updatexycalsLimit(int i) { // update shifter calibration values in the scaled units for displaying shifter
     if (i == 0) {
       xycals[i].limits[0]= x + lx/2; // a low limit is 0
@@ -257,7 +224,7 @@ class XYshifter {
       xycals[i].limits[3] = xycals[i-1].y - ly; // e high limit is d
     }
   }
-  void checkxycalsLimit(int i) { // checks if scaled cal values are withing limits and limits them if they are not
+  void checkxycalsLimit(int i) { // checks if scaled cal values are withing limits and limit them if they are not
     if (i < 3) {
       if (xycals[i].x <= xycals[i].limits[0]) {
         xycals[i].x = xycals[i].limits[0];

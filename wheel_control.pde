@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.2"; // control panel version
+String cpVer="v2.3"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -48,8 +48,9 @@ Numberbox num1; // create instance of numberbox class
 
 int num_sldr = 12; //number of FFB sliders
 int num_btn = 24;  //number of wheel buttons
-int ctrl_btn = 13; //number of control buttons
+int ctrl_btn = 14; //number of control buttons
 int ctrl_sh_btn = 5; //number of control buttons for XY shifter
+int ctrl_axis_btn = 8; //number of control buttons for gamepad axis
 int key_btn = 11;  //number of keyboard function buttons
 int gbuffer = 500; //number of points to show in ffb graph
 int gskip = 8; //ffb monitor graph vertical divider
@@ -64,18 +65,18 @@ GCustomSlider[] sdr = new GCustomSlider [num_sldr];
 String[] sliderlabel = new String[num_sldr];
 float[] slider_value = new float[num_sldr];
 boolean parmChanged = false; // keep track if any FFB parm was changed
-boolean moved = false; // keep track if wheel axis is used
+boolean wheelMoved = false; // keep track if wheel axis is centered
 float prevaxis = 0.0; // previous steer axis value 
 int[] col = new int[3]; // colors for control buttons, hsb mode
-int thue; // color for text of control button, gray scale mode
+int thue; // color for text of control button, gray axisScale mode
 boolean[] buttonpressed = new boolean[ctrl_btn]; // true if button is pressed
 String[] description = new String[key_btn]; // keyboard button function description
 String[] keys = new String[key_btn]; // keyboard buttons
 boolean enableinfo = true;
 byte effstate, effstateprev, effstatedef; // current, previous and default desktop effect state in binary form
 byte pwmstate, pwmstateprev, pwmstatedef; // current, previous and default pwm settings in binary form
-boolean typepwm, modepwm; // keeps track of PWM settings
-int freqpwm; // keeps track of PWM frequency index selection
+boolean typepwm; // keeps track of PWM type settings
+int freqpwm, modepwm; // keeps track of PWM frequency index selection and pwm mode settings
 int minTorque, maxTorque, maxTorquedef; // min, max ffb value or PWM steps
 int curCPR, lastCPR, CPRdef;
 int maxCPR = 99999; // maximum acceptable CPR by firmware
@@ -103,6 +104,10 @@ boolean XYshifterEnabled = false; // keeps track if XY analog shifter is support
 int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
 String[] shCommand = new String[ctrl_sh_btn+3]; // commands for XY shifter settings
 int[] xysParmDef = new int [6]; // XY shifter defaults
+String[] pdlCommand = new String[9]; // commands for pedal calibration
+float[] pdlMinParm = new float [4]; // curent pedal minimum cal values
+float[] pdlMaxParm = new float [4]; // curent pedal maximum cal values
+float[] pdlParmDef = new float [8]; // default pedal cal values
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -113,7 +118,7 @@ ControlDevice gpad;
 // gamepad axis array
 float[] Axis = new float[5];
 float axisValue;
-float scaledValue;
+float axisScaledValue;
 // gamepad button array
 boolean[] Button = new boolean [num_btn];
 boolean buttonValue = false;
@@ -121,12 +126,12 @@ boolean buttonValue = false;
 int[] Dpad = new int[8];
 int hatvalue;
 // control buttons
-boolean[] controlb = new boolean[ctrl_btn+ctrl_sh_btn]; // true as long as mouse is howered over
+boolean[] controlb = new boolean[ctrl_btn+ctrl_sh_btn+ctrl_axis_btn]; // true as long as mouse is howered over
 
 PFont font;
 int font_size = 12;
 
-int scale = 250; // length of axis ruler scale
+int axisScale = 250; // length of axis ruler axisScale
 int Nbits = 16; // wheel's X-axis number of bits (resolution)
 int real_wheelTurn = 900; // physical range of wheels rotation in degrees (lock to lock) - what you set in wheel driver
 int lfs_wheelTurn = 900; // software range of wheels rotation in degrees (lock to lock) - what you set in lfs as wheelturn
@@ -215,30 +220,35 @@ void setup() {
   font = createFont("Arial", 16, true);
   textSize(font_size);
 
-  posY = height - (2.2*scale);
+  posY = height - (2.2*axisScale);
 
   // Create the sprites
   Domain domain = new Domain(1440, 800, width, height);
   sprite[0] = new Sprite(this, "TX_wheel_rim_small_alpha.png", 10);
   //sprite[0] = new Sprite(this, "599XXEVO30_alpha_small.png", 10);
   sprite[0].setVelXY(0, 0);
-  sprite[0].setXY(0.05*width+0.5*scale, posY-80);
+  sprite[0].setXY(0.05*width+0.5*axisScale, posY-80);
   sprite[0].setDomain(domain, Sprite.REBOUND);
   sprite[0].respondToMouse(false);
   sprite[0].setZorder(20);
 
   //for (int i = 0; i < wheels.length; i++) {
-  wheels[0] = new Wheel(0.05*width+0.5*scale, posY-80, scale*0.9, str(frameRate));
-  //wheels[1] = new Wheel(width/2+1.8*scale, height/2, scale*0.9, "LFS car's wheel Y");
+  wheels[0] = new Wheel(0.05*width+0.5*axisScale, posY-80, axisScale*0.9, str(frameRate));
+  //wheels[1] = new Wheel(width/2+1.8*axisScale, height/2, axisScale*0.9, "LFS car's wheel Y");
   //}
 
   SetAxisColors(); // checks for existing colors in txt file
 
-  slajderi[0] = new Slajder(axis_color[0], width/3.65 + 0*60, height-posY, 10, 65535, "X");
-  slajderi[1] = new Slajder(axis_color[1], width/3.65 + 1*60, height-posY, 10, 4095, "Y");
-  slajderi[2] = new Slajder(axis_color[2], width/3.65 + 2*60, height-posY, 10, 4095, "Z");
-  slajderi[3] = new Slajder(axis_color[3], width/3.65 + 3*60, height-posY, 10, 4095, "RX");
-  slajderi[4] = new Slajder(axis_color[4], width/3.65 + 4*60, height-posY, 10, 4095, "RY");
+  slajderi[0] = new Slajder(axis_color[0], width/3.65 + 0*60, height-posY, 10, 65535, "X", "0", "0");
+  slajderi[1] = new Slajder(axis_color[1], width/3.65 + 1*60, height-posY, 10, 4095, "Y", "a", "b");
+  slajderi[2] = new Slajder(axis_color[2], width/3.65 + 2*60, height-posY, 10, 4095, "Z", "c", "d");
+  slajderi[3] = new Slajder(axis_color[3], width/3.65 + 3*60, height-posY, 10, 4095, "RX", "e", "f");
+  slajderi[4] = new Slajder(axis_color[4], width/3.65 + 4*60, height-posY, 10, 4095, "RY", "g", "h");
+
+  for (int i=0; i<slajderi.length; i++) {
+    slajderi[i].update(i);
+  }
+  prevaxis = slajderi[0].axisVal;
 
   for (int j = 0; j < dugmici.length; j++) { // wheel buttons
     if (j <=7) {
@@ -252,22 +262,23 @@ void setup() {
 
   dialogs[0] = new Dialog(0.05*width, height-posY*1.85+3*28, 16, "waiting input..");
 
-  // general control buttons
+  // general control push buttons
   buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center", "set as 0deg", 0);
   buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default FFB settings", 0);
-  buttons[2] = new Button(width/3.7 + 3.1*60, height-posY+31, 70, 16, "recalibrate", "pedals", 1);
+  buttons[2] = new Button(width/3.7 + 3.1*60, height-posY+31, 70, 16, "auto cal", "reset pedal cal", 3);
   buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save FFB settings to arduino", 0);
   buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "save pwm to arduino (restart required)", 0);
   buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "current profile to PC", 0);
   buttons[11] = new Button(width/3.7 + 1.1*60, height-posY+31, 50, 16, "shifter", "calibration", 1);
   buttons[12] = new Button(width/3.7 + 2.2*60, height-posY+31, 16, 16, " ", "set r to 8th+button0", 1);
 
-  // optional ffb effect on/off buttons
+  // optional and ffb effect on/off toggle buttons
   buttons[3] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+8)-12, 16, 16, " ", "autocenter spring", 3);
   buttons[4] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+2)-12, 16, 16, " ", "user damper", 3);
   buttons[5] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+7)-12, 16, 16, " ", "user inertia", 3);
   buttons[6] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+3)-12, 16, 16, " ", "user friction", 3);
   buttons[7] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+1)-12, 16, 16, " ", "FFB monitor", 3);
+  buttons[13] = new Button(width/3.7 + 3.1*60, height-posY+50, 70, 16, "manual cal", "set pedal cal", 1);
 
   //keys
   keys[0] = "r";
@@ -302,7 +313,7 @@ void setup() {
     hatsw[k] = new HatSW(0.05*width + 9*28 + 7, height-posY*1.85+1*28 + 10, 14, 48);
   }
   /*for (int i = 0; i < graphs.length; i++) {
-   graphs[i] = new Graph(width/2, height/2, scale*2, 3);
+   graphs[i] = new Graph(width/2, height/2, axisScale*2, 3);
    }*/
   xAxis_log_max = 1;
   for (int i = 0; i<=Nbits-1; i++) {
@@ -383,6 +394,16 @@ void setup() {
   shCommand[5] = "HF ";
   shCommand[6] = "HG";
   shCommand[7] = "HR";
+  // pedal manual calibration related commands
+  pdlCommand[0] = "YA ";
+  pdlCommand[1] = "YB ";
+  pdlCommand[2] = "YC ";
+  pdlCommand[3] = "YD ";
+  pdlCommand[4] = "YE ";
+  pdlCommand[5] = "YF ";
+  pdlCommand[6] = "YG ";
+  pdlCommand[7] = "YH ";
+  pdlCommand[8] = "YR";
 
   //btnToggle[0] = new GImageToggleButton(this, 10+1*(slider_width+20), slider_height/2+20);
   //btnToggle[1] = new GImageToggleButton(this, 10+3*(slider_width+20), slider_height/2+20);
@@ -393,7 +414,7 @@ void setup() {
   }
 
   readFwVersion(); // read wheel firmware version
-  if (!LCenabled) {
+  if (!LCenabled) { // max brake slider becomes FFB balance if no load cell
     sliderlabel[11] = "FFB balance L/R";
     defParmFFB[11] = 128.0;
   }
@@ -411,12 +432,22 @@ void setup() {
     } else {
       buttonpressed[12] = false;
     }
-    wb = "V";
-    executeWR();
   } else {
     buttons[11].active = false;
     buttons[12].active = false;
   }
+  if (bitRead(fwOpt, 0) == 0) { // if bit0 - pedal autocalibration is 0, then we have manual pedal calibration
+    if (LCenabled) {
+      slajderi[1].yLimits[0].active = false; // if load cell, inactivate manual cal for brake axis
+      slajderi[1].yLimits[1].active = false;
+    }
+    refreshPedalCalibration();
+    updateLastPedalCalibration(rb);
+  } else {
+    buttons[13].active = false; // disable manual cal button if pedal auto calib firmware
+  }
+  wb = "V";
+  executeWR();
 
   //FFB graph
   ffbgraphs[0] = new FFBgraph(width-1, height-1-gbuffer/gskip, width-1, 1);
@@ -432,9 +463,9 @@ void setup() {
   makeEditable(num1);
 
   cp5 = new ControlP5(this);
-  List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", " 1.60 kHz", "976 Hz", "800 Hz", "488 Hz");
+  List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz");
   List b = Arrays.asList("fast top", "phase corr");
-  List c = Arrays.asList("pwm +-", "pwm+dir");
+  List c = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100");
   List d = Arrays.asList("dac +-", "dac+dir");
   List e = Arrays.asList("default");
   /* add a ScrollableList, by default it behaves like a DropdownList */
@@ -466,15 +497,15 @@ void setup() {
   if (!enabledac) {
     /* add a ScrollableList, by default it behaves like a DropdownList */
     cp5.addScrollableList("frequency")
-      .setPosition(Xoffset+int(width/3.5) - 15 + 9.3*60, height-posY+30+108)
-      .setSize(66, 100)
+      .setPosition(Xoffset+int(width/3.5) - 15 + 564, height-posY+30+108)
+      .setSize(56, 100)
       .setBarHeight(20)
       .setItemHeight(20)
       .addItems(a)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
     cp5.addScrollableList("pwmtype")
-      .setPosition(Xoffset+int(width/3.5) - 15 + 7.0*60, height-posY+30+108)
+      .setPosition(Xoffset+int(width/3.5) - 15 + 402, height-posY+30+108)
       .setSize(66, 100)
       .setBarHeight(20)
       .setItemHeight(20)
@@ -482,8 +513,8 @@ void setup() {
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
     cp5.addScrollableList("pwmmode")
-      .setPosition(Xoffset+int(width/3.5) - 15 + 8.2*60, height-posY+30+108)
-      .setSize(60, 100)
+      .setPosition(Xoffset+int(width/3.5) - 15 + 479, height-posY+30+108)
+      .setSize(74, 100)
       .setBarHeight(20)
       .setItemHeight(20)
       .addItems(c)
@@ -524,9 +555,7 @@ void drawWheelControll() {
    handleToggleButtonEvents(btnToggle[j], j);
    }*/
   for (int i = 0; i < slajderi.length; i++) {
-    slajderi[i].update();
-    axisValue = Axis[i];
-    scaledValue = -scale+Axis[i]*scale;
+    slajderi[i].update(i);
     slajderi[i].show();
   }
   for (int j = 0; j < dugmici.length; j++) {
@@ -539,19 +568,18 @@ void drawWheelControll() {
     hatsw[k].show();
     hatsw[k].showArrow();
   }
-  wheels[0].update();
-  axisValue = Axis[0]*wParmFFB[0]/2;
-  //axisValue = sin(float(frameCount)/60.0*0.05*2.0*PI)*wParmFFB[0]/2; // testing
-  wheels[0].showDeg(axisValue);
+  //my simple animated wheel gfx
+  wheels[0].update(slajderi[0].axisVal*wParmFFB[0]/2); //update the angle in units of degrees
+  wheels[0].showDeg(); //show the angle in units of degrees in a nice number format
 
+  //animated wheel from png sprite
   if (!buttonpressed[7]) {
     S4P.updateSprites(1);
+    sprite[0].setRot(slajderi[0].axisVal*wParmFFB[0]/2/180*PI); //set the angle of the sprite in units of radians
     S4P.drawSprites();
-    sprite[0].setRot(axisValue/180*PI);
   }
 
   //wheels[0].show();
-
   //wheels[1].update();
   //axisValue = correct_axis(Axis[0]);
   //wheels[1].show();
@@ -680,8 +708,8 @@ void draw_labels() {
   translate(width/3.5, height-159);
   text("Arduino FFB Wheel", 0, 0);
   text("Control panel " + cpVer, 0, 20);
-  text("Miloš Ranković 2018-2022", 0, 40);
-  text("ranenbg@gmail.com", 0, 60);
+  text("Miloš Ranković 2018-2022 ©", 0, 40);
+  text("ranenbg@gmail.com, paypal@ranenbg", 0, 60);
   popMatrix();
 }
 
@@ -896,13 +924,12 @@ void mousePressed() {
 }
 
 void mouseReleased() {
-  //int wheel_axis;
   if (controlb[0]) { // if we pressed center button
-    if (moved) { // only update if it is not centered
+    if (wheelMoved) { // only re-center if wheel moved from initial center pos
       wb = "C";
       executeWR();
       prevaxis = gpad.getSlider("Xaxis").getValue();
-      moved = false;
+      wheelMoved = false;
     }
   }
   if (controlb[1]) { // if we pressed default button
@@ -955,6 +982,14 @@ void mouseReleased() {
     wb = shCommand[5] + str(shifters[0].sConfig);
     executeWR();
   }
+  if (controlb[13]) { // if we pressed manual cal button
+    ActuateButton(13);
+    if (buttonpressed[13]) {
+      for (int i=1; i<=4; i++) slajderi[i].yLimitsVisible = true;
+    } else {
+      for (int i=1; i<=4; i++) slajderi[i].yLimitsVisible = false;
+    }
+  }
   if (controlb[ctrl_btn+0]) { // if we pressed shifter calibration slider a
     wb = shCommand[0] + str(int(shifters[0].sCal[0]));
     executeWR();
@@ -973,6 +1008,38 @@ void mouseReleased() {
   }
   if (controlb[ctrl_btn+4]) { // if we pressed shifter calibration slider e
     wb = shCommand[4] + str(int(shifters[0].sCal[4]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+0]) { // if we pressed pedal calibration slider a
+    wb = pdlCommand[0] + str(int(slajderi[1].pCal[0]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+1]) { // if we pressed pedal calibration slider b
+    wb = pdlCommand[1] + str(int(slajderi[1].pCal[1]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+2]) { // if we pressed pedal calibration slider c
+    wb = pdlCommand[2] + str(int(slajderi[2].pCal[0]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+3]) { // if we pressed pedal calibration slider d
+    wb = pdlCommand[3] + str(int(slajderi[2].pCal[1]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+4]) { // if we pressed pedal calibration slider e
+    wb = pdlCommand[4] + str(int(slajderi[3].pCal[0]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+5]) { // if we pressed pedal calibration slider f
+    wb = pdlCommand[5] + str(int(slajderi[3].pCal[1]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+6]) { // if we pressed pedal calibration slider g
+    wb = pdlCommand[6] + str(int(slajderi[4].pCal[0]));
+    executeWR();
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+7]) { // if we pressed pedal calibration slider h
+    wb = pdlCommand[7] + str(int(slajderi[4].pCal[1]));
     executeWR();
   }
   updateEffstate (); // update effstate each time a button is realised
@@ -1009,11 +1076,11 @@ void keyReleased() {
     println("RB: " + rb);
   }
   if (key == 'c' ) {
-    if (moved) { // only update if it is not centered already
+    if (wheelMoved) { // only update if it is not centered already
       wb = "C";
       executeWR();
       prevaxis = gpad.getSlider("Xaxis").getValue();
-      moved = false;
+      wheelMoved = false;
     }
   }
   if (key == 'u' ) {
@@ -1147,7 +1214,7 @@ void setSliderToParm(int s) {
   } else if (s == 11) {
     sdr[s].setValue(wParmFFB[s]/brake_max); // max brake pressure
   }
-  slider_value[s] = wParmFFB[s]; // update slider scaled value
+  slider_value[s] = wParmFFB[s]; // update slider axisScaled value
 }
 
 void changeRot(float step) {
@@ -1211,11 +1278,15 @@ void updateEffstate () { // code switches into effstate value
 
 void readPWMstate () { // decode settings from pwmstate value and update lists to those value
   typepwm = boolean(bitRead (pwmstate, 0)); // bit0 of pwmstate is pwm type
-  modepwm = boolean(bitRead (pwmstate, 1)); // bit1 of pwmstate is pwm mode
+  modepwm = bitWrite(byte(modepwm), 0, boolean(bitRead (pwmstate, 1))); // bit1 and bit6 of pwmstate contain pwm mode
   for (int i=2; i<=5; i++) { // read frequency index, bits 2-5 of pwmstate
     freqpwm = bitWrite(byte(freqpwm), i-2, boolean(bitRead(pwmstate, i)));
   }
-  modedac = boolean(bitRead (pwmstate, 6)); // bit6 of pwmstate is DAC mode
+  if (DACenabled) {
+    modedac = boolean(bitRead (pwmstate, 6)); // bit6 of pwmstate is DAC mode
+  } else {
+    modepwm = bitWrite(byte(modepwm), 1, boolean(bitRead (pwmstate, 6))); // bit1 and bit6 of pwmstate contain pwm mode
+  }
   enabledac = boolean(bitRead (pwmstate, 7)); // bit7 of pwmstate is DAC out enable
   pwmstateprev = pwmstate;
 }
@@ -1225,15 +1296,22 @@ void sendPWMstate () { // send pwmstate value to arduino
   executeWR(); // send values to arduino and read buffer from wheel (arduino will save it in EEPPROM right away)
 }
 
-void updatePWMstate () { // code to pwm settings from pwm settings values
+void updatePWMstate () { // code pwm byte from pwm settings values
   pwmstate = bitWrite(pwmstate, 0, typepwm);
-  pwmstate = bitWrite(pwmstate, 1, modepwm);
+  pwmstate = bitWrite(pwmstate, 1, boolean(bitRead(byte(modepwm), 0))); // only look at bit0 of modepwm
   for (int i=0; i <=5; i++) { // set frequency index, bits 2-5 of pwmstate
     pwmstate = bitWrite(pwmstate, i+2, boolean(bitRead(byte(freqpwm), i)));
   }
-  pwmstate = bitWrite(pwmstate, 6, modedac);
+  if (DACenabled) {
+    pwmstate = bitWrite(pwmstate, 6, modedac);
+  } else {
+    pwmstate = bitWrite(pwmstate, 6, boolean(bitRead(byte(modepwm), 1))); // only look at bit1 of modepwm
+  }
   pwmstate = bitWrite(pwmstate, 7, enabledac);
-  //println(pwmstate);
+  /*for (int i=0; i<8; i++) {
+   print(bitRead(pwmstate, 7-i));
+   }
+   println("");*/
 }
 
 // function that will be called when controller 'numbers' changes
@@ -1299,7 +1377,7 @@ void pwmmode(int n) {
   CColor c = new CColor();
   c.setBackground(color(255, 0, 0));
   cp5.get(ScrollableList.class, "pwmmode").getItem(n).put("color", c);
-  modepwm = boolean(n);
+  modepwm = n;
   updatePWMstate ();
 }
 
@@ -1509,4 +1587,18 @@ void updateLastShifterConfig() { // update curent shifter cal and config values
     shifterLastConfig[i] = int(shifters[0].sCal[i]); // XY shifter calibration values
   }
   shifterLastConfig[5] = int(shifters[0].sConfig); // XY shifter configuration
+}
+
+void refreshPedalCalibration() {
+  wb = pdlCommand[8];
+  executeWR();
+}
+
+void updateLastPedalCalibration(String calibs) { // update curent firmware pedal manual cal limits
+  float[] temp = float(split(calibs, ' ')); // format is "min max min max min max min max"
+  for (int i=0; i<pdlMinParm.length; i++) {
+    pdlMinParm[i] = temp[2*i]; // every even number is min
+    pdlMaxParm[i] = temp[2*i+1]; // every odd number is max
+    slajderi[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); //update pCal
+  }
 }

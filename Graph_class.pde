@@ -43,9 +43,9 @@ class Graph {
       ellipse(pointX, pointY, ps, ps); // graph points
     }
     stroke(127);
-    int Ypos = int (correct_axis(Axis[0])/real_wheelTurn*scale*2);
+    int Ypos = int (correct_axis(Axis[0])/real_wheelTurn*axisScale*2);
     line(-gs/2, gs-Ypos, gs/2, gs-Ypos); // horisontal 0 line
-    int Xpos = int (Axis[0]*scale);
+    int Xpos = int (Axis[0]*axisScale);
     line(Xpos, gs/2, Xpos, gs/2+gs); // vertical 0 line
     stroke(96, 255, 255, 200);
     line(-gs/2, gs+gs/2, gs/2, gs/2); // diagonal (linear or 1:1) line
@@ -59,11 +59,11 @@ class Graph {
 
     // graph X axis
     axisValue = Axis[0]*real_wheelTurn/2;
-    level = axisValue/real_wheelTurn*scale;
+    level = axisValue/real_wheelTurn*axisScale;
     pushMatrix();
-    translate(x-scale, y+scale+17);
+    translate(x-axisScale, y+axisScale+17);
     rotate(PI/2);
-    float n = scale/10.0;
+    float n = axisScale/10.0;
     float m = n/5.0;
     for (int i = 0; i > -20; i--) {
       for (int j = 0; j > -5; j--) {
@@ -74,17 +74,17 @@ class Graph {
     line(0, -20*n, 10, -20*n);
     fill(255);
     pushMatrix();
-    translate(0, -scale);
+    translate(0, -axisScale);
     rotate(-PI/2);
     text(value, -4, 25);
-    text(axisValue, scale-50, 25);
+    text(axisValue, axisScale-50, 25);
     popMatrix();
     popMatrix();
 
     // graph X axis arrow
     pushMatrix();
     beginShape();
-    translate(x, y+scale); // center of ruler scale
+    translate(x, y+axisScale); // center of ruler axisScale
     //rotate(-PI/2);
     translate(level*2, 2); // moving along the ruler
     int hg = 0;
@@ -107,9 +107,9 @@ class Graph {
     // graph Y axis
     pushMatrix();
     axisValue = correct_axis(Axis[0]);
-    level = axisValue/real_wheelTurn*scale;
-    translate(x+scale+17, y+scale);
-    //float n = scale/10;
+    level = axisValue/real_wheelTurn*axisScale;
+    translate(x+axisScale+17, y+axisScale);
+    //float n = axisScale/10;
     //float m = n/5;
     for (int i = 0; i > -20; i--) {
       for (int j = 0; j > -5; j--) {
@@ -122,8 +122,8 @@ class Graph {
     //text(value, 0, -(2*n+1)*10);
     //text(axisValue, 0, 20);
     text(axisValue, 20, -(2*n)*10+4);
-    float minlock = -scale+float(lfs_car_wheelTurn)/float(real_wheelTurn)*scale;
-    float maxlock = -minlock -scale*2;
+    float minlock = -axisScale+float(lfs_car_wheelTurn)/float(real_wheelTurn)*axisScale;
+    float maxlock = -minlock -axisScale*2;
     strokeWeight(3);
     stroke(128, 255, 255);
     line(14, minlock, 20, minlock); // min lock limit (red)
@@ -134,7 +134,7 @@ class Graph {
     // graph Y axis arrow
     pushMatrix();
     beginShape();
-    translate(x+scale/2+2, y); // center of ruler scale
+    translate(x+axisScale/2+2, y); // center of ruler axisScale
     rotate(-PI/2);
     translate(level*2, 0); // moving along the ruler
     hg = 128;

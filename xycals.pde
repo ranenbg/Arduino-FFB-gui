@@ -76,6 +76,7 @@ class xyCal {
     vertex(-sx/2, -sy/2);
     endShape();
     textSize(font_size);
+    if (sx < font_size) textSize(sx);
     fill(thue);
     stroke(150);
     if (orn == 0) {
@@ -101,11 +102,12 @@ class xyCal {
     } else if (orn == 3) {
       pushMatrix();
       rotate(-float(orn)/2.0*PI);
-      text(t, -sx/2, sy/2);
+      text(t, -sx/2, 0.35*sy);
       translate(dx+yoffs, 0);
       line(-dx+1, 0, -1, 0);
       popMatrix();
     }
     popMatrix();
+    textSize(font_size);
   }
 }
