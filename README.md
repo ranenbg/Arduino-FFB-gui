@@ -2,8 +2,8 @@
 
 Graphical user interface for controlling and monitoring all aspects of the **[Arduino FFB wheel](https://github.com/ranenbg/Arduino-FFB-wheel)** via RS232 serial port. Wheel control v2.2 supports Arduino HEX firmware from v190 and onward, but it's backward compatible with v170 and v180. You can use a stand alone wheel_control.exe file from the **[latest release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)**, it already has all Java stuff embedded. For more details on how to setup and use the program correctly please read *[manual.txt](./data/manual.txt)* located in [data folder](./data).
 
-### Screenshot of GUI v2.2
-![plot](./data/Wheel_control_v2_2.png)
+### Screenshot of GUI v2.3
+![plot](./data/Wheel_control_v2_3.png)
 
 ## Download - standalone app
 + ***[Latest Release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)***
