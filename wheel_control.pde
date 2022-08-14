@@ -436,7 +436,7 @@ void setup() {
     buttons[11].active = false;
     buttons[12].active = false;
   }
-  if (bitRead(fwOpt, 0) == 0) { // if bit0 - pedal autocalibration is 0, then we have manual pedal calibration
+  if (bitRead(fwOpt, 0) == 0 && fwVerNum >= 200) { // if bit0 and =>fw-v200 - pedal autocalibration is disabled, then we have manual pedal calibration
     if (LCenabled) {
       slajderi[1].yLimits[0].active = false; // if load cell, inactivate manual cal for brake axis
       slajderi[1].yLimits[1].active = false;
@@ -709,7 +709,7 @@ void draw_labels() {
   text("Arduino FFB Wheel", 0, 0);
   text("Control panel " + cpVer, 0, 20);
   text("Miloš Ranković 2018-2022 ©", 0, 40);
-  text("ranenbg@gmail.com, paypal@ranenbg", 0, 60);
+  text("ranenbg@gmail.com, paypal@ranenbg.com", 0, 60);
   popMatrix();
 }
 
