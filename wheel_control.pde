@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.3"; // control panel version
+String cpVer="v2.4"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -95,6 +95,10 @@ boolean checkFwVer = true; // when enabled update fwVersion will take place
 boolean enabledac, modedac; // keeps track of DAC output settings
 boolean profileActuated = false; // keeps track if we pressed the profile selection
 boolean CPRlimit = false; // true if we input more than max allowed CPR
+boolean pwm0_50_100enabled = false; // true if firmware supports pwm0.50.100 mode
+boolean pwm0_50_100selected = false; // keeps track if pwm0.50.100 mode is selected
+boolean RCMenabled = false; // true if firmware supports RCM pwm mode
+boolean RCMselected = false; // keeps track if RCM pwm mode is selected
 int rbt_ms = 0; // read buffer response time in milliseconds
 String fwVerStr; // Arduino firmware version including the options
 int fwVerNum; // Arduino firmware version digits only
@@ -108,6 +112,11 @@ String[] pdlCommand = new String[9]; // commands for pedal calibration
 float[] pdlMinParm = new float [4]; // curent pedal minimum cal values
 float[] pdlMaxParm = new float [4]; // curent pedal maximum cal values
 float[] pdlParmDef = new float [8]; // default pedal cal values
+// pwm frequency selection possibilities - depends on firmware version and RCM mode
+List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz"); // for fw-v200 or lower
+List a1 = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz", "533 Hz", "400 Hz", "244 Hz"); // wider pwm freq selection (fw-v210+), no RCM selected
+List a2_rcm = Arrays.asList("na", "na", "na", "na", "500 Hz", "400 Hz", "200 Hz", "122 Hz", "100 Hz", "61 Hz", "67 Hz", "50 Hz", "30 Hz"); // alternate pwm freq selection if RCM selected
+int allowedRCMfreqID = 4; // first allowed pwm freq ID for RCM mode from the above list (anything after and including 500Hz is allowed)
 
 GImageToggleButton[] btnToggle = new GImageToggleButton[2];
 
@@ -170,20 +179,20 @@ void setup() {
   //noSmooth();
   smooth(2);
   background(51);
+  println("=======================================================\n  Arduino Leonardo FFB user interface\t\n  wheel control "+cpVer +" created by Milos Rankovic");
   showSetupText("Configuring wheel control");
   File f = new File(dataPath("COM_cfg.txt"));
   //https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
-  if (!f.exists()) showMessageDialog(frame, "COM_cfg.txt is not present, a one time\nautomatic device setup will now start.\n", "Arduino FFB Wheel " + cpVer, INFORMATION_MESSAGE);
+  if (!f.exists()) showMessageDialog(frame, "COM_cfg.txt was not found in your PC, but do not worry.\nYou either run the app for the 1st time, or you have\ndeleted the configuration file for a fresh start.\n\t\nPress OK to continue with the automatic setup process.", "Arduino FFB Wheel " + cpVer +" - Hello World :)", INFORMATION_MESSAGE);
   if (!f.exists()) showMessageDialog(frame, "Setup will now try to find control IO instances.\n", "Setup - step 1/3", INFORMATION_MESSAGE);
   // Initialise the ControlIO
   control = ControlIO.getInstance(this);
   println("Instance:", control);
   // Find a device that matches the configuration file
-  if (!f.exists()) showMessageDialog(frame, "Setup will now try to list available game devices.\n", "Setup - step 2/3", INFORMATION_MESSAGE);
+  if (!f.exists()) showMessageDialog(frame, "Step 1 of setup has passed succesfully.\nSetup will now try to look for available game devices in your PC.\n", "Setup - step 2/3", INFORMATION_MESSAGE);
   String inputdevices = "";
   inputdevices = control.deviceListToText("");
-  //inputdevices = control.devicesToText("");
-  if (!f.exists()) showMessageDialog(frame, inputdevices+"\nIf this step does not pass you may try to run wheel_control.pde source code from Processsing 3.5.4.\n", "Setup - Device list", INFORMATION_MESSAGE);
+  if (!f.exists()) showMessageDialog(frame, "\nThe following devices are found in your PC:\n\t\n"+inputdevices+"\nThe setup will now try to configure each device, but bare in mind that some devices may cause the app to crash.\nIf that happens, you may try to manually create COM_cfg.txt file (see manual.txt in data folder for instructions),\nor you may try to run wheel_control.pde source code from Processsing IDE version 3.5.4.\n", "Setup - list of available devices", INFORMATION_MESSAGE);
   println(inputdevices);
   gpad = control.getMatchedDevice("Arduino Leonardo wheel v5");
   if (gpad == null) {
@@ -463,9 +472,10 @@ void setup() {
   makeEditable(num1);
 
   cp5 = new ControlP5(this);
-  List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz");
   List b = Arrays.asList("fast top", "phase corr");
-  List c = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100");
+  List c = Arrays.asList("pwm +-", "pwm+dir");
+  List c1 = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100");
+  List c2_rcm = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100", "rcm");
   List d = Arrays.asList("dac +-", "dac+dir");
   List e = Arrays.asList("default");
   /* add a ScrollableList, by default it behaves like a DropdownList */
@@ -504,6 +514,10 @@ void setup() {
       .addItems(a)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
+    if (RCMenabled) { // fw-v210 has bigger pwm frequency selection
+      cp5.get(ScrollableList.class, "frequency").removeItems(a);
+      cp5.get(ScrollableList.class, "frequency").addItems(a1);
+    }
     cp5.addScrollableList("pwmtype")
       .setPosition(Xoffset+int(width/3.5) - 15 + 402, height-posY+30+108)
       .setSize(66, 100)
@@ -520,6 +534,14 @@ void setup() {
       .addItems(c)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
+    if (pwm0_50_100enabled) { // fw-v200 has pwm0.50.100 mode added
+      cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
+      cp5.get(ScrollableList.class, "pwmmode").addItems(c1);
+    } else if (RCMenabled) { // fw-v210 has RCM mode added
+      cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
+      cp5.get(ScrollableList.class, "pwmmode").addItems(c2_rcm);
+    }
+    //println(pwm0_50_100enabled+" "+RCMenabled);
     cp5.get(ScrollableList.class, "frequency").close();
     cp5.get(ScrollableList.class, "pwmtype").close();
     cp5.get(ScrollableList.class, "pwmmode").close();
@@ -895,6 +917,8 @@ void readFwVersion() { // reads firmware version from String and checks if load 
     XYshifterEnabled = true;
   }
   if (bitRead(fwOpt, 0) == 0) buttons[2].active = false; // if bit0 is LOW (no pedal autocalibration available)
+  if (fwVerNum >= 200 && fwVerNum < 210) pwm0_50_100enabled = true;
+  if (fwVerNum >= 210) RCMenabled = true;
 }
 
 byte decodeFwOpts (String fopt) {
@@ -1278,13 +1302,23 @@ void updateEffstate () { // code switches into effstate value
 
 void readPWMstate () { // decode settings from pwmstate value and update lists to those value
   typepwm = boolean(bitRead (pwmstate, 0)); // bit0 of pwmstate is pwm type
+  // put pwmstate bit1 to modepwm bit0
   modepwm = bitWrite(byte(modepwm), 0, boolean(bitRead (pwmstate, 1))); // bit1 and bit6 of pwmstate contain pwm mode
+
+  // pwmstate bits meaning  
+  // bit1 bit6 pwm_mode
+  // 0    0    pwm+-
+  // 0    1    pwm0.50.100
+  // 1    0    pwm+dir
+  // 1    1    rcm
+
   for (int i=2; i<=5; i++) { // read frequency index, bits 2-5 of pwmstate
     freqpwm = bitWrite(byte(freqpwm), i-2, boolean(bitRead(pwmstate, i)));
   }
   if (DACenabled) {
     modedac = boolean(bitRead (pwmstate, 6)); // bit6 of pwmstate is DAC mode
   } else {
+    // put pwmstate bit6 to modepwm bit1
     modepwm = bitWrite(byte(modepwm), 1, boolean(bitRead (pwmstate, 6))); // bit1 and bit6 of pwmstate contain pwm mode
   }
   enabledac = boolean(bitRead (pwmstate, 7)); // bit7 of pwmstate is DAC out enable
@@ -1292,11 +1326,27 @@ void readPWMstate () { // decode settings from pwmstate value and update lists t
 }
 
 void sendPWMstate () { // send pwmstate value to arduino
-  wb = "W " + str(int(pwmstate)); // set command for pwm settings
-  executeWR(); // send values to arduino and read buffer from wheel (arduino will save it in EEPPROM right away)
+  boolean settingAllowed = false;
+  // check if selected pwm freq in RCM mode is allowed
+  if (!RCMenabled) { // for older fw version all pwm modes are available
+    settingAllowed = true;
+  } else { // for RCM fw-v210 or above
+    if (RCMselected) { // if we selected RCM mode
+      if (freqpwm >= allowedRCMfreqID) settingAllowed = true; // if freq is lower or equal than 500Hz, freq ID higher or equal 4
+    } else {  // if we selected any other pwm mode
+      settingAllowed = true;
+    }
+  }
+  if (settingAllowed) {
+    wb = "W " + str(int(pwmstate)); // set command for pwm settings
+    executeWR(); // send values to arduino and read buffer from wheel (arduino will save it in EEPPROM right away)
+    //println(str(typepwm)+ " "+str(modepwm)+ " "+str(freqpwm));
+  } else {
+    showMessageDialog(frame, "You are trying to send pwm settings which are not allowed,\nplease set correct pwm settings first and try again.", "Caution", WARNING_MESSAGE);
+  }
 }
 
-void updatePWMstate () { // code pwm byte from pwm settings values
+void updatePWMstate () { // code pwmstate byte from pwm settings values
   pwmstate = bitWrite(pwmstate, 0, typepwm);
   pwmstate = bitWrite(pwmstate, 1, boolean(bitRead(byte(modepwm), 0))); // only look at bit0 of modepwm
   for (int i=0; i <=5; i++) { // set frequency index, bits 2-5 of pwmstate
@@ -1312,6 +1362,7 @@ void updatePWMstate () { // code pwm byte from pwm settings values
    print(bitRead(pwmstate, 7-i));
    }
    println("");*/
+  //println("bit0="+str(bitRead(byte(modepwm), 0)) +", bit1= "+ str(bitRead(byte(modepwm), 1)));
 }
 
 // function that will be called when controller 'numbers' changes
@@ -1351,7 +1402,7 @@ void makeEditable(Numberbox n) {
 void frequency(int n) {
   /* request the selected item based on index n */
   //println(n, cp5.get(ScrollableList.class, "frequency").getItem(n));
-  /* here an item is stored as a Map  with the following key-value pairs:
+  /* here an item is stored as a Map with the following key-value pairs:
    * name, the given name of the item
    * text, the given text of the item by default the same as name
    * value, the given value of the item, can be changed by using .getItem(n).put("value", "abc"); a value here is of type Object therefore can be anything
@@ -1363,6 +1414,9 @@ void frequency(int n) {
   cp5.get(ScrollableList.class, "frequency").getItem(n).put("color", c);
   freqpwm = n;
   updatePWMstate ();
+  if (n < allowedRCMfreqID) { // everything above 500Hz, or lower than freq ID 4
+    if (RCMselected) showMessageDialog(frame, "This frequency is not available for RCM mode,\nplease select one of the other available ones.", "Caution", WARNING_MESSAGE);
+  }
 }
 
 void pwmtype(int n) {
@@ -1379,6 +1433,20 @@ void pwmmode(int n) {
   cp5.get(ScrollableList.class, "pwmmode").getItem(n).put("color", c);
   modepwm = n;
   updatePWMstate ();
+  if (n==3) { // if we selected RCM pwm mode, only available if firmware supports RCM pwm mode
+    if (!RCMselected) { // if RCM mode is not selected
+      cp5.get(ScrollableList.class, "frequency").removeItems(a1); // remove extended pwm freq selection
+      cp5.get(ScrollableList.class, "frequency").addItems(a2_rcm); // add pwm freq selection for RCM pwm mode
+      RCMselected = true;
+    }
+  } else { // if we selected anything else except for RCM mode
+    if (RCMselected) { // if previous selection was RCM mode
+      cp5.get(ScrollableList.class, "frequency").removeItems(a2_rcm); // remove freq selection for RCM pwm mode
+      cp5.get(ScrollableList.class, "frequency").addItems(a1); // add the extented pwm freq selection
+    }
+    RCMselected = false;
+  }
+  cp5.get(ScrollableList.class, "frequency").setValue(freqpwm); // update the frequency list to the last freq selection
 }
 
 void dacmode(int n) {
@@ -1421,9 +1489,10 @@ int COMselector() {
           COMlist += "(" +char(j+'a') + ") " + Serial.list()[j];
           if (++j < i) COMlist += ",  ";
         }
-        COMx = showInputDialog(frame, gpad + " at? (letter only)\n" + COMlist, "Setup - step 3/3", QUESTION_MESSAGE);
+        COMx = showInputDialog(frame, "Step 2 of setup passed succesfuly, we're almost finished.\n\t" + gpad + " at? (type letter only)\n" + COMlist, "Setup - step 3/3", QUESTION_MESSAGE);
         if (COMx == null) exit();
         if (COMx.isEmpty()) exit();
+
         i = int(COMx.toLowerCase().charAt(0) - 'a') + 1;
       }
       String portName = Serial.list()[i-1];
@@ -1433,7 +1502,7 @@ int COMselector() {
       result = i-1;
       //exit();
     } else {
-      showMessageDialog(frame, "No COM port deviced detected.\n", "Warning", WARNING_MESSAGE);
+      showMessageDialog(frame, "No serial port deviced detected.\n", "Warning", WARNING_MESSAGE);
       result = 0;
       //exit();
     }
