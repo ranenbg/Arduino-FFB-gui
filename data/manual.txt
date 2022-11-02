@@ -1,7 +1,7 @@
 Milos Rankovic
 ranenbg@gmail.com
-29.08.2022.
-wheel control v2.4 - compatible with Arduino HEX versions v200 and newer (backward compatible with v170, v180 and v190)
+02.10.2022.
+wheel control v2.5 - compatible with Arduino HEX versions fw-v220 (backward compatible with v170, v180, v190, v200 and v210)
 
 About:
 Wheel control GUI is made in windows programming environment called Processing v3.5.4, which is based on Java. It opperartes by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup. Arduino firmware and GUI are developed and tested in Win10.
@@ -44,6 +44,9 @@ In this version you can manual set pedal axis calibration limits and save them i
 
 RCM pwm mode settings
 Some RC servos and other brushless motor drivers require a special pwm mode for their operation, called RCM or PPM. This version of wheel control supports the lattest version of firmware fw-v21X where I have added this new pwm mode. Note that not all frequencies are available due to the nature of this mode. A zero force is represented as a square wave with a pulse width of 1.5ms, while full left force has 1.0ms pulse width and full right force has 2.0ms pulse width. This imposes a limit for the max allowed frequency of 500Hz which corresponds to 2ms period. Any higher frequency than 500Hz would have a lower period, therefore it does not allow to achieve the full range of right (positive) forces. For that reason I have labeled such frequencies as NA - not available. I have implemented some safety features in this version of wheel control, such that you can't select or send incorrect pwm settings to firmware.
+
+Using encoder Z-index
+If you encoder has a 3rd channel called Z-index you can use HEX firmware with "z" option to automatically set the zero angle. This version of wheel control in combination with HEX v22Xz (X-0,1,2,3) allows you to reset the Z-index offset in the firmware and set a new one. After firmware upload and first start of wheel control you can re-align your wheel to a desired zero deg position and press center button, then press save button to remember the settings in Arduino memory. If you are not happy with the centering and wish to do it again, you have to press the z button first and repeat the above described process.
 
 Hopefully everything else will be self explanatory, enjoy :)
 rane.

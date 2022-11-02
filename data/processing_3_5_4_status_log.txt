@@ -1,11 +1,11 @@
 =======================================================
   Arduino Leonardo FFB user interface	
-  wheel control v2.4 created by Milos Rankovic
+  wheel control v2.5 created by Milos Rankovic
 =======================================================
   GameControlPlus V1.2.2 created by
   Christian Riekoff and Peter Lager
 =======================================================
-Instance: org.gamecontrolplus.ControlIO@5a93fb1f
+Instance: org.gamecontrolplus.ControlIO@6e6606a9
 ##########################################################################################
                    Game Control Plus  - available devices
                    --------------------------------------
@@ -27,11 +27,10 @@ axis colors: loaded from txt
    G4P V4.3.8 created by Peter Lager
 =======================================================
 Wheel parameters:
-1080.0 1.0 0.5 0.5 1.0 1.0 1.0 0.5 0.7 1.0 0.0 128.0 1 500 2400 9; 2ms
-WB:V, RB:fw-v210zf; 2ms
-WB:V, RB:fw-v210zf; 14ms
-WB:HG, RB:255 511 767 255 511 0; 21ms
-WB:YR, RB:0 4095 0 4095 0 4095 0 4095; 11ms
-WB:V, RB:fw-v210zf; 9ms
+1080.0 1.0 0.5 0.5 1.0 1.0 1.0 0.5 0.7 1.0 0.0 45.0 1 10000 4000 33; 2ms
+WB:V, RB:fw-v222zh; 1ms
+WB:V, RB:fw-v222zh; 10ms
+WB:YR, RB:0 4095 0 4095 0 4095 0 4095; 21ms
+WB:V, RB:fw-v222zh; 10ms
 ControlP5 2.2.6 infos, comments, questions at http://www.sojamo.de/libraries/controlP5
 profile1.txt found

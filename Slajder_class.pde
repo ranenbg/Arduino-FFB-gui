@@ -30,13 +30,13 @@ class Slajder {
       axisVal = gpad.getSlider("Xaxis").getValue();
       if (axisVal != prevaxis) wheelMoved = true;
     } else if (i == 1) { // Y-axis
-      axisVal = -gpad.getSlider("Yaxis").getValue();
+      axisVal = gpad.getSlider("Yaxis").getValue();
     } else if (i == 2) { // Z-axis
-      axisVal = -gpad.getSlider("Zaxis").getValue();
+      axisVal = gpad.getSlider("Zaxis").getValue();
     } else if (i == 3) { // RX-axis
-      axisVal = -gpad.getSlider("RXaxis").getValue();
+      axisVal = gpad.getSlider("RXaxis").getValue();
     } else if (i == 4) { // RY-axis
-      axisVal = -gpad.getSlider("RYaxis").getValue();
+      axisVal = gpad.getSlider("RYaxis").getValue();
     } else {
       axisVal = 0.0;
     }
@@ -102,7 +102,7 @@ class Slajder {
     stroke(255);
     pushMatrix();
     rectMode(CORNER);
-    rect(x, y, s, -axisScale+axisVal*axisScale);
+    rect(x, y, s, -axisScale-axisVal*axisScale);
     translate(x-15, y);
     float n = axisScale/10;
     float m = n/5;
@@ -114,7 +114,7 @@ class Slajder {
     }
     line(0, -20*n, 10, -20*n);
     fill(255);
-    text(round(map(axisVal, -1, 1, am, 0)), 0, -(2*n+1)*10);
+    text(round(map(axisVal, -1, 1, 0, am)), 0, -(2*n+1)*10);
     text(l, 0, 20);
     popMatrix();
     if (yLimitsVisible) {

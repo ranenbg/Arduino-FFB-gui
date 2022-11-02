@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.4"; // control panel version
+String cpVer="v2.5"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -48,10 +48,10 @@ Numberbox num1; // create instance of numberbox class
 
 int num_sldr = 12; //number of FFB sliders
 int num_btn = 24;  //number of wheel buttons
-int ctrl_btn = 14; //number of control buttons
+int ctrl_btn = 15; //number of control buttons
 int ctrl_sh_btn = 5; //number of control buttons for XY shifter
 int ctrl_axis_btn = 8; //number of control buttons for gamepad axis
-int key_btn = 11;  //number of keyboard function buttons
+int key_btn = 12;  //number of keyboard function buttons
 int gbuffer = 500; //number of points to show in ffb graph
 int gskip = 8; //ffb monitor graph vertical divider
 int num_profiles = 11; //number of FFB setting profiles (including default profile)
@@ -272,7 +272,7 @@ void setup() {
   dialogs[0] = new Dialog(0.05*width, height-posY*1.85+3*28, 16, "waiting input..");
 
   // general control push buttons
-  buttons[0] = new Button(0.05*width + 3.5*60, height-posY-270, 50, 16, "center", "set as 0deg", 0);
+  buttons[0] = new Button(0.05*width + 3.45*60, height-posY-270, 47, 16, "center", "set as 0°", 0);
   buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default FFB settings", 0);
   buttons[2] = new Button(width/3.7 + 3.1*60, height-posY+31, 70, 16, "auto cal", "reset pedal cal", 3);
   buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save FFB settings to arduino", 0);
@@ -280,6 +280,7 @@ void setup() {
   buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "current profile to PC", 0);
   buttons[11] = new Button(width/3.7 + 1.1*60, height-posY+31, 50, 16, "shifter", "calibration", 1);
   buttons[12] = new Button(width/3.7 + 2.2*60, height-posY+31, 16, 16, " ", "set r to 8th+button0", 1);
+  buttons[14] = new Button(0.05*width + 4.4*60, height-posY-270, 18, 16, "z", "reset", 0);
 
   // optional and ffb effect on/off toggle buttons
   buttons[3] = new Button(sldXoff+width/2+slider_width+60, slider_height/2*(1+8)-12, 16, 16, " ", "autocenter spring", 3);
@@ -292,27 +293,29 @@ void setup() {
   //keys
   keys[0] = "r";
   keys[1] = "c";
-  keys[2] = "p";
-  keys[3] = "u";
-  keys[4] = "v";
-  keys[5] = "d";
-  keys[6] = "b";
-  keys[7] = "s";
-  keys[8] = "+";
-  keys[9] = "-";
-  keys[10] = "i";
+  keys[2] = "z";
+  keys[3] = "p";
+  keys[4] = "u";
+  keys[5] = "v";
+  keys[6] = "d";
+  keys[7] = "b";
+  keys[8] = "s";
+  keys[9] = "+";
+  keys[10] = "-";
+  keys[11] = "i";
 
   description[0] = "read wheel buffer";
   description[1] = "center wheel";
-  description[2] = "reset pedal calibration";
-  description[3] = "show wheel parameters";
-  description[4] = "show wheel version";
-  description[5] = "load FFB defaults";
-  description[6] = "calibrate wheel";
-  description[7] = "show wheel state";
-  description[8] = "change rotation by +1deg";
-  description[9] = "change rotation by -1deg";
-  description[10] = "show/hide information";
+  description[2] = "encoder Z-index reset";
+  description[3] = "reset pedal calibration";
+  description[4] = "show wheel parameters";
+  description[5] = "show wheel version";
+  description[6] = "load FFB defaults";
+  description[7] = "calibrate wheel";
+  description[8] = "show wheel state";
+  description[9] = "change rotation by +1deg";
+  description[10] = "change rotation by -1deg";
+  description[11] = "show/hide information";
 
   for (int n = 0; n < infos.length; n++) {
     infos[n] = new Info(0.05*width, height-posY*1.85+4*28+2*n*font_size, font_size, description[n], keys[n]);
@@ -345,7 +348,7 @@ void setup() {
   for (int j = 0; j < sdr.length; j++) {
     sdr[j] = new GCustomSlider(this, width/2+sldXoff, slider_height/2*j-4, slider_width, slider_height, "red_yellow18px");
     // Some of the following statements are not actually
-    // required because they are setting the default value. 
+    // required because they are setting the default values only 
     sdr[j].setLocalColorScheme(2); 
     sdr[j].setOpaque(false); 
     sdr[j].setNbrTicks(10); 
@@ -454,6 +457,11 @@ void setup() {
     updateLastPedalCalibration(rb);
   } else {
     buttons[13].active = false; // disable manual cal button if pedal auto calib firmware
+  }
+  if (bitRead(fwOpt, 1) == 1) { // if bit1=1, encoder z-index is support by firmware
+    buttons[14].active = true; // activate z-reset button
+  } else {
+    buttons[14].active = false; // inactivate z-reset button
   }
   wb = "V";
   executeWR();
@@ -1014,6 +1022,10 @@ void mouseReleased() {
       for (int i=1; i<=4; i++) slajderi[i].yLimitsVisible = false;
     }
   }
+  if (controlb[14]) { // if we pressed z reset button
+    wb = "Z";
+    executeWR();
+  }
   if (controlb[ctrl_btn+0]) { // if we pressed shifter calibration slider a
     wb = shCommand[0] + str(int(shifters[0].sCal[0]));
     executeWR();
@@ -1147,21 +1159,22 @@ void keyReleased() {
     wb = "P";
     executeWR();
   }
+  if (key == 'z' ) {
+    wb = "Z";
+    executeWR();
+  }
   buttonpressed[0] = false;
   buttonpressed[1] = false;
   buttonpressed[2] = false;
+  buttonpressed[14] = false;
 }
 
 void keyPressed() {
-  if (key == 'c') {
-    buttonpressed[0] = true;
-  }
-  if (key == 'd') {
-    buttonpressed[1] = true;
-  }
-  if (key == 'p') {
-    buttonpressed[2] = true;
-  }
+  if (key == 'c') buttonpressed[0] = true;
+  if (key == 'd') buttonpressed[1] = true;
+  if (key == 'p') buttonpressed[2] = true;
+  if (key == 'z') buttonpressed[14] = true;
+
   for (int i=0; i < wParmFFB.length; i++) {
     wParmFFBprev[i] = wParmFFB[i];
   }
