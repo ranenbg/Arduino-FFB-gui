@@ -19,3 +19,6 @@ The GUI is made in Processing 3.5.4 IDE from scratch and requires latest Java 8.
 - control P5
 
 Make sure that all pde files are located in the folder named wheel_control. Processing 3.5.4 IDE can be found here: <https://processing.org/download>
+
+## Troubleshooting
+# stuck in black screen at startup
