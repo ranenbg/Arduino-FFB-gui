@@ -21,4 +21,5 @@ The GUI is made in Processing 3.5.4 IDE from scratch and requires latest Java 8.
 Make sure that all pde files are located in the folder named wheel_control. Processing 3.5.4 IDE can be found here: <https://processing.org/download>
 
 ## Troubleshooting
-### stuck in black screen at startup
+The program will look for all HID capable and virtual COM port devices plugged into your PC, but it doesn't know to which COM port your Arduino is assigned to. You can either follow the first time run setup process and select your Arduino COM port from there, or if you experience "stuck in black screen issue" you can do it manually. Locate the data folder and create a txt file named COM_cfg.txt (do not put .txt in the file name, it is just the file extension). Open this file and type COMx, where x is the 1 digit number of the COM port where your Arduino is located (you can find it in device manager under ports, example is COM5). Save the file and close it, then try to run wheel control exe again.
+If the problem still persits, you should download Processing IDE and try to run it as a source code from there.
