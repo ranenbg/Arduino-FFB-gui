@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.5"; // control panel version
+String cpVer="v2.5.1"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -102,7 +102,10 @@ boolean RCMselected = false; // keeps track if RCM pwm mode is selected
 int rbt_ms = 0; // read buffer response time in milliseconds
 String fwVerStr; // Arduino firmware version including the options
 int fwVerNum; // Arduino firmware version digits only
-byte fwOpt; // Arduino firmware options, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
+byte fwOpt; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
+byte fwOpt2; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-b, b1-, b2-, b3-, b4-, b5-, b6-, b7-)
+boolean clutchenabled = true; // true if firmware supports clutch analog axis (not the case only for fw option "e")
+boolean hbrakeenabled = true; // true if firmware supports handbrake analog axis (not the case only for fw option "e")
 int Xoffset = -44; // X-axis offset for buttons
 boolean XYshifterEnabled = false; // keeps track if XY analog shifter is supported by firmware
 int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
@@ -232,14 +235,16 @@ void setup() {
   posY = height - (2.2*axisScale);
 
   // Create the sprites
-  Domain domain = new Domain(1440, 800, width, height);
-  sprite[0] = new Sprite(this, "TX_wheel_rim_small_alpha.png", 10);
-  //sprite[0] = new Sprite(this, "599XXEVO30_alpha_small.png", 10);
+  Domain domain = new Domain(0, 0, width, height);
+  sprite[0] = new Sprite(this, "rane_wheel_rim_O-shape.png", 10);
+  //sprite[0] = new Sprite(this, "rane_wheel_rim_O-shape.png", 10);
+  //sprite[0] = new Sprite(this, "TX_wheel_rim_small_alpha.png", 10);
   sprite[0].setVelXY(0, 0);
-  sprite[0].setXY(0.05*width+0.5*axisScale, posY-80);
+  sprite[0].setXY(0.038*width+0.5*axisScale, posY-72);
   sprite[0].setDomain(domain, Sprite.REBOUND);
   sprite[0].respondToMouse(false);
   sprite[0].setZorder(20);
+  //sprite[0].setScale(0.9);
 
   //for (int i = 0; i < wheels.length; i++) {
   wheels[0] = new Wheel(0.05*width+0.5*axisScale, posY-80, axisScale*0.9, str(frameRate));
@@ -260,11 +265,11 @@ void setup() {
   prevaxis = slajderi[0].axisVal;
 
   for (int j = 0; j < dugmici.length; j++) { // wheel buttons
-    if (j <=7) {
+    if (j <= 7) {
       dugmici[j] = new Dugme(0.05*width +j*28, height-posY*1.85, 18);
-    } else if (j>7 && j<16) {
+    } else if (j > 7 && j < 16) {
       dugmici[j] = new Dugme(0.05*width +(j-8)*28, height-posY*1.85+28, 18);
-    } else if (j>15 && j<24) {
+    } else if (j > 15 && j < 24) {
       dugmici[j] = new Dugme(0.05*width +(j-16)*28, height-posY*1.85+2*28, 18);
     }
   }
@@ -453,6 +458,14 @@ void setup() {
       slajderi[1].yLimits[0].active = false; // if load cell, inactivate manual cal for brake axis
       slajderi[1].yLimits[1].active = false;
     }
+    if (bitRead(fwOpt2, 0) == 1) { // if bit0 of firmware options byte2 is HIGH, we have extra buttons and no clutch and handbrake
+      if (!LCenabled) {  
+        slajderi[3].yLimits[0].active = false; // only if no load cell, inactivate manual cal for clutch axis
+        slajderi[3].yLimits[1].active = false;
+      }
+      slajderi[4].yLimits[0].active = false; // if extra buttons, inactivate manual cal for handbrake axis
+      slajderi[4].yLimits[1].active = false;
+    }
     refreshPedalCalibration();
     updateLastPedalCalibration(rb);
   } else {
@@ -606,6 +619,7 @@ void drawWheelControll() {
   if (!buttonpressed[7]) {
     S4P.updateSprites(1);
     sprite[0].setRot(slajderi[0].axisVal*wParmFFB[0]/2/180*PI); //set the angle of the sprite in units of radians
+    //sprite[0].setRot(PI*sin(2*PI*frameCount*0.001));
     S4P.drawSprites();
   }
 
@@ -738,7 +752,7 @@ void draw_labels() {
   translate(width/3.5, height-159);
   text("Arduino FFB Wheel", 0, 0);
   text("Control panel " + cpVer, 0, 20);
-  text("Miloš Ranković 2018-2022 ©", 0, 40);
+  text("Miloš Ranković 2018-2023 ©", 0, 40);
   text("ranenbg@gmail.com, paypal@ranenbg.com", 0, 60);
   popMatrix();
 }
@@ -908,18 +922,20 @@ void readFwVersion() { // reads firmware version from String and checks if load 
     fwOpts = fwTemp.substring(3, fwTemp.length());  // remove only numbers
   }
   fwVerNum = parseInt(fwVerStr);
-  fwOpt = decodeFwOpts(fwOpts);
+  fwOpt = decodeFwOpts(fwOpts); // decode fw options into 1st byte
+  fwOpt2 = decodeFwOpts2(fwOpts); // decode fw options into 2nd byte
   String fwVerNumStr = str(fwVerNum);
   int len = fwVerNumStr.length();
+  if (fwVerNumStr.charAt(len-1) == '0' || fwVerNumStr.charAt(len-1) == '1') { // if last number is 0 or 1
+    LCenabled = false; // we don't have load cell or dac
+    DACenabled = false;
+  }
   if (fwVerNumStr.charAt(len-1) == '2') { // if last number is 2
-    LCenabled = true;
-  } else {
-    LCenabled = false;
+    LCenabled = true; // we have load cell
   }
   if (fwVerNumStr.charAt(len-1) == '3') { // if last number is 3
+    LCenabled = true; // we have load cell and dac
     DACenabled = true;
-  } else {
-    DACenabled = false;
   }
   if (bitRead(fwOpt, 7) == 1) { // if bit7 is HIGH (xy shifter bit)
     XYshifterEnabled = true;
@@ -927,11 +943,15 @@ void readFwVersion() { // reads firmware version from String and checks if load 
   if (bitRead(fwOpt, 0) == 0) buttons[2].active = false; // if bit0 is LOW (no pedal autocalibration available)
   if (fwVerNum >= 200 && fwVerNum < 210) pwm0_50_100enabled = true;
   if (fwVerNum >= 210) RCMenabled = true;
+  if (bitRead(fwOpt2, 0) == 1) {// if bit0 is HIGH (clutch and handbrake are unavailable)
+    clutchenabled = false;
+    hbrakeenabled = false;
+  }
 }
-
+// decode 1st byte of firmware options
 byte decodeFwOpts (String fopt) {
   byte temp = 0;
-  if (fopt != "0") { // has firmware options
+  if (fopt != "0") { // has firmware any options
     for (int j=0; j<fopt.length(); j++) {
       if (fopt.charAt(j) == 'a') temp = bitWrite(temp, 0, true); // b0=1, pedal autocalibration enabled
       if (fopt.charAt(j) == 'z') temp = bitWrite(temp, 1, true); // b1=1, encoder z-index enabled
@@ -941,6 +961,17 @@ byte decodeFwOpts (String fopt) {
       if (fopt.charAt(j) == 'm') temp = bitWrite(temp, 5, true); // b5=1, ProMicro replacement pinouts
       if (fopt.charAt(j) == 't') temp = bitWrite(temp, 6, true); // b6=1, 4x4 button matrix enabled
       if (fopt.charAt(j) == 'f') temp = bitWrite(temp, 7, true); // b7=1, XY analog shifter enabled
+    }
+  }
+  //println("fw opt: 0x" + hex(temp));
+  return temp;
+}
+// decode 2nd byte of firmware options
+byte decodeFwOpts2 (String fopt) {
+  byte temp = 0;
+  if (fopt != "0") { // has firmware any options
+    for (int j=0; j<fopt.length(); j++) {
+      if (fopt.charAt(j) == 'e') temp = bitWrite(temp, 0, true); // b0=1, extra buttons enabled
     }
   }
   //println("fw opt: 0x" + hex(temp));
