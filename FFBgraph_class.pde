@@ -1,19 +1,17 @@
 class FFBgraph {
-  float x;
-  float y;
-  int gh;
+  float x, y;
   int ps;
   int[] pointY = new int [gbuffer];
-  float gwidthX, sclX, sclY;
+  float gwidthX, gh, sclX, sclY;
 
-  FFBgraph(float posx, float posy, int gheight, int pointsize) {
-    x = posx;
-    y = posy;
-    gh = gheight;
+  FFBgraph(float posx, float posy, float gheight, int pointsize) {
+    x = posx - 1;
+    y = posy - 1;
+    gh = gheight - 1;
     ps = pointsize;
-    gwidthX = gbuffer/gskip;
+    gwidthX = gbuffer / gskip;
     sclX = gwidthX / gbuffer;
-    sclY = float(gh) / (2*maxTorque);
+    sclY = gh / (2*maxTorque);
   }
 
   void update(String val1) {
@@ -38,16 +36,12 @@ class FFBgraph {
     pushMatrix();
     translate(-9, gh);
     int l = 32;
-    float n = (gh+1)/l;
+    float n = gh/l;
     float m = n/5;
     for (int i = 0; i >= -l; i--) {
       for (int j = 0; j > -5; j--) {
-        if (i > -l) {
-          line(0, i*n, 9, i*n); // small ticks
-          line(4, j*m + i*n, 9, j*m + i*n); // major ticks
-        } else {
-          line(0, (i*n)+1, 9, (i*n)+1);
-        }
+        line(0, n*i, 9, n*i); // major ticks
+        if (i > -l) line(4, m*j + n*i, 9, m*j + n*i); // small ticks (do not draw them after last major tick)
       }
     }
     popMatrix();
@@ -62,7 +56,7 @@ class FFBgraph {
       //stroke(32, 255, 255);
       strokeWeight(ps);
       stroke(map(abs(pointY[i]), 0, maxTorque, 145, 0), 255, 255);
-      line(1+i*sclX, gh/2-sclY*pointY[i], 1+(i+1)*sclX, gh/2-sclY*pointY[i+1]);
+      line(sclX*i+1, gh/2-sclY*pointY[i], sclX*(i+1)+1, gh/2-sclY*pointY[i+1]);
     }
     popMatrix();
   }

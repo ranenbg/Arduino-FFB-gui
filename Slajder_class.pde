@@ -3,11 +3,11 @@ class Slajder {
   float x, y, s, am, axisVal;
   String l, la, lb;
   xyCal[] yLimits = new xyCal[2];
-  boolean yLimitsVisible;
+  boolean yLimitsVisible, ffb;
   float[] pCal = new float[2];
   int id;
 
-  Slajder(color acolor, float posx, float posy, float size, float axisMax, String label, String labela, String labelb) {
+  Slajder(color acolor, float posx, float posy, float size, float axisMax, String label, String labela, String labelb, boolean ffbaxis) {
     c = acolor;
     x = posx;
     y = posy;
@@ -16,6 +16,7 @@ class Slajder {
     l = label;
     la = labela;
     lb = labelb;
+    ffb = ffbaxis;
     yLimits[0] = new xyCal(x-2.8*s, y, s, s, 3, la);
     yLimits[1] = new xyCal(x-2.8*s, y-2*axisScale, s, s, 3, lb);
     yLimits[0].active = true;
@@ -39,6 +40,12 @@ class Slajder {
       axisVal = gpad.getSlider("RYaxis").getValue();
     } else {
       axisVal = 0.0;
+    }
+    // update axis view with FFB marking
+    if (FFBAxisIndex == i) {
+      ffb = true; // axis with FFB mark
+    } else {
+      ffb = false; // axis without FFB mark
     }
     setpCal();
     id = i;
@@ -115,7 +122,21 @@ class Slajder {
     line(0, -20*n, 10, -20*n);
     fill(255);
     text(round(map(axisVal, -1, 1, 0, am)), 0, -(2*n+1)*10);
-    text(l, 0, 20);
+    if (ffb) {
+      noFill();
+      //stroke(c);
+      rect(15, 14, 18, -10);
+      textSize(0.8*font_size);
+      //fill(c);
+      text("FFB", 15, 13);
+    }
+    fill(255);
+    textSize(font_size);
+    if (id < 3) {
+      text(l, -2, 20);
+    } else {
+      text(l, -font_size/2, 20);
+    }
     popMatrix();
     if (yLimitsVisible) {
       for (int j=0; j<yLimits.length; j++) {

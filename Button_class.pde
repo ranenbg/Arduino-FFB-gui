@@ -67,13 +67,14 @@ class Button {
     if (showInfo) {
       pushMatrix();
       if (dp == 0) {
-        translate(x, y-1.2*sy); // put description above
+        translate(x, y-1.15*sy); // put description above
       } else if (dp == 1) {
-        translate(x, y+1.2*sy); // put description bellow
+        translate(x, y+1.15*sy); // put description bellow
       } else if (dp == 2) {
         translate(x-textWidth(d)-font_size, y); // put description to the left side
       } else if (dp == 3) {
-        translate(x+sx+10, y); // put description to the right side
+        translate(x+sx, y); // put description to the right side
+      } else {
       }
       noFill();
       rect(0, 0, textWidth(d)+font_size, sy);

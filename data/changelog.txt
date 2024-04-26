@@ -1,0 +1,20 @@
+Milos Rankovic, ranenbg@gmail.com
+created 09.04.2024
+last updated 17.04.2024.
+
+GUI change log from v2.5.1 to v2.6.0
+
+- added support for new firmware version and its options (v230, option "x")
+- added dropdown list for selecting which axis is tied to the FFB axis (allows analog axis for FFB, opt "x")
+- added advanced H-shifter option buttons (X,Y-axis invert, reverse gear button invert, only from v230f)
+- when other than X-axis are selected for FFB, animated sprite wheel angle is updated according to selected axis
+- improved handling of firmware options readout
+- improved handling of FFB monitor (if left running - auto stop on next startup)
+- added more startup info in the bottom of window (added complete firmware options readout)
+- minor H-shifter graphical updates and fixes
+- fixed a small bug where desktop user effects were not updated correctly at startup
+- minor change of some button names and/or descriptions (shifter, pedal calibration, save, store)
+- show arduino HEX firmware version in window info
+- improved handling of how a profile is stored (overwrite check added)
+- axis max value gets updated according to the firmware features (default 1023, ads1105 4095, hx711 65535)
+- FFB effect sliders values now show 100% instead of 1.0%

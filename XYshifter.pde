@@ -183,13 +183,13 @@ class XYshifter {
     noStroke();
     translate(x, y+dy);
     fill(51);
-    rect(-0.1*dx, 0.1*dy, dx*1.2, -dy*1.2); // shifter background
+    rect(-0.025*dx, 0.07*dy, dx*1.15, -dy*1.18); // shifter background
     stroke(255);
     strokeWeight(1);
     noFill();
     rect(0, 0, dx, -dy); // shifter zone
     fill(255);
-    String sName = "XY shifter";
+    String sName = "Analog XY H-shifter";
     text(sName, dx-textWidth(sName), font_size);
     noStroke();
     fill(32, 255, 255);

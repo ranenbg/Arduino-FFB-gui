@@ -43,19 +43,48 @@ class Profile {
     this.fromContents();
   }
   void storeToFile(String fn) {
-    String tempName = "";
-    if (name == "default") {
-      showMessageDialog(frame, "Can not be modifyed.\nSelect another profile.");
+    String tempStr = "";
+    int tempOpt = -1;
+    if (this.name.equals("default")) {
+      showMessageDialog(frame, "Can not be modified.\nSelect another profile.");
     } else {
-      tempName = showInputDialog("Profile name", name);
-      if (tempName != null) {
-        name = tempName;
+      tempStr = showInputDialog("Save profile name as?", this.name);
+      if (tempStr != null) {
+        this.name = tempStr;
         cp5.get(ScrollableList.class, "profile").setItems(ProfileNameList());
-        upload();
-        saveStrings("/data/"+fn+".txt", contents);
-        println(name, "saved in "+fn+".txt");
+        if (nameExists(name)) { // if this profile name arleady exists
+          showConfirmDialog(frame, "Name already exists.\nOverwrite?");
+        }
+        if (tempOpt == -1 || tempOpt == 0) {
+          upload();
+          saveStrings("/data/"+fn+".txt", contents);
+          println(this.name, "saved as "+fn+".txt");
+        }
       }
     }
+  }
+  String getPrfParm(int iProfile, int iParm) { // retrieve certain parameter from a given profile
+    String profileContents[] = new String[num_profiles];
+    profileContents = loadStrings("profile"+str(iProfile)+".txt");
+    if (profileContents == null) {
+      return null;
+    } else {
+      return profileContents[iParm];
+    }
+  }
+  boolean nameExists(String cName) { // returns true if profile with this name already exists
+    String pName;
+    boolean c = false;
+    for (int i=1; i<num_profiles; i++) { // look through all found profiles
+      File p = new File(dataPath("profile"+str(i)+".txt"));
+      if (p.exists()) {
+        pName = getPrfParm(i, 0);
+        if (pName.equals(cName)) {
+          c = true;
+        }
+      }
+    }
+    return c;
   }
   boolean exists(int i) {
     boolean r = false;
