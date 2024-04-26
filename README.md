@@ -1,9 +1,9 @@
 # Arduino-FFB-gui
 
-Graphical user interface for controlling and monitoring all aspects of the **[Arduino FFB wheel](https://github.com/ranenbg/Arduino-FFB-wheel)** via RS232 serial port. Wheel control v2.5.1 supports Arduino HEX firmware v220 and is backward compatible with v210, v200, v190, v180 and v170. You can use a stand alone wheel_control.exe file from the **[latest release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)**, it already has all Java stuff embedded. For more details on how to setup and use the program correctly please read the **[manual](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data/manual.txt)**. You can find some screenshots with step-by-step first time run setup process in **[data](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data)** folder.
+Graphical user interface for controlling and monitoring all aspects of the **[Arduino FFB wheel](https://github.com/ranenbg/Arduino-FFB-wheel)** via RS232 serial port. Wheel control v2.6.0 supports Arduino HEX firmware v230 and is backward compatible with v220, v210, v200, v190, v180 and v170. You can use a stand alone wheel_control.exe file from the **[latest release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)**, it already has all Java stuff embedded. For more details on how to setup and use the program correctly please read the **[manual](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data/manual.txt)**. You can find some screenshots with step-by-step first time run setup process in **[data](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data)** folder.
 
-### Screenshot of GUI v2.5.1
-![plot](./data/Wheel_control_v2_5_1.png)
+### Screenshot of GUI v2.6.0
+![plot](./data/Wheel_control_v2_6_0.png)
 
 ## Download - standalone app
 + ***[Latest Release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)***
