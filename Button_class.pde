@@ -45,7 +45,7 @@ class Button {
         thue = 255;
         showInfo = false;
       }
-    } else {
+    } else { // gray with white text (not enabled)
       col[0] = 0;
       col[1] = 0;
       col[2] = 100;
@@ -74,7 +74,6 @@ class Button {
         translate(x-textWidth(d)-font_size, y); // put description to the left side
       } else if (dp == 3) {
         translate(x+sx, y); // put description to the right side
-      } else {
       }
       noFill();
       rect(0, 0, textWidth(d)+font_size, sy);

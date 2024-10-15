@@ -3,20 +3,19 @@ class HatSW {
   float y;
   float r;
   float R;
+  boolean enabled;
 
   HatSW (float posx, float posy, float radius, float Radius) {
     x = posx;
     y = posy;
     r = radius;
     R = Radius;
+    enabled = false;
   }
 
   void update() {
     if (gpad.getButton("Hat").pressed()) { 
       hatvalue = floor(gpad.getButton("Hat").getValue());
-      //println(hatvalue);
-    } else {
-      //println(0);
     }
   }
 
@@ -29,7 +28,11 @@ class HatSW {
     }
     stroke(255);
     strokeWeight(1);
-    fill(hue, 255, 255);
+    if (enabled) {
+      fill(hue, 255, 255);
+    } else {
+      fill(0, 0, 100);
+    }
     ellipse(x, y, r, r);
     noFill();
     stroke(255, 200);
@@ -42,8 +45,6 @@ class HatSW {
       translate(x, y);
       rotate(TWO_PI*hatvalue/8.0+(1.0/2.0)*PI);
       beginShape();
-      //strokeWeight(1);
-      //stroke(255);
       noStroke();
       fill(64, 255, 255);
       int hg = floor(R*0.4);

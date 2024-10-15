@@ -33,7 +33,7 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 
-String cpVer="v2.6.0"; // control panel version
+String cpVer="v2.6.1"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -73,6 +73,7 @@ boolean[] buttonpressed = new boolean[ctrl_btn]; // true if button is pressed
 String[] description = new String[key_btn]; // keyboard button function description
 String[] keys = new String[key_btn]; // keyboard buttons
 boolean enableinfo = true;
+boolean dActByp = true; // if true, it will bypass wheel buttons' ability to be inactivated (gray)
 byte effstate, effstateprev, effstatedef; // current, previous and default desktop effect state in binary form
 byte pwmstate, pwmstateprev, pwmstatedef; // current, previous and default pwm settings in binary form
 boolean typepwm; // keeps track of PWM type settings
@@ -89,6 +90,8 @@ float brake_max = 255.0; // max brake pressure
 boolean fbmnstp = false; // keeps track if we deactivated ffb monitor
 String fbmnstring; // string from ffb monitor readout
 String COMport[]; // string for serial port on which Arduino Leonardo is reported
+boolean BBenabled = false; // keeps track if button box is supported (3 digit fw's ending with 1)
+boolean BMenabled = false; // keeps track if button matrix is supported (option "t") 
 boolean LCenabled = false; // keeps track if load cell is supported (3 digit fw's ending with 2)
 boolean DACenabled = false; // keeps track if FFB DAC output is supported in firmware (3 digit fw's ending with 3)
 boolean checkFwVer = true; // when enabled update fwVersion will take place
@@ -105,7 +108,7 @@ String FullfwVerStr; // Arduino firmware version including the options
 String fwVerStr; // Arduino firmware version not including the options
 int fwVerNum; // Arduino firmware version digits only
 byte fwOpt; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
-byte fwOpt2; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-b, b1-x, b2-, b3-, b4-, b5-, b6-, b7-)
+byte fwOpt2; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-e, b1-x, b2-w, b3-c, b4-r, b5-, b6-, b7-)
 boolean clutchenabled = true; // true if firmware supports clutch analog axis (not the case only for fw option "e")
 boolean hbrakeenabled = true; // true if firmware supports handbrake analog axis (not the case only for fw option "e")
 int Xoffset = -44; // X-axis offset for buttons
@@ -181,6 +184,7 @@ Info[] infos = new Info[key_btn];
 FFBgraph[] ffbgraphs = new FFBgraph[1];
 Profile[] profiles = new Profile[num_profiles];
 XYshifter[] shifters = new XYshifter[1];
+InfoButton[] infobuttons = new InfoButton [1];
 
 void setup() {
   size(1440, 800, JAVA2D);
@@ -291,10 +295,16 @@ void setup() {
   dialogs[0] = new Dialog(0.05*width, height-posY*1.85+3*28, 16, "waiting input..");
 
   // general control push buttons
-  buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default FFB settings", 0);
-  buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save FFB settings to arduino", 0);
+  buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default settings", 0);
+  buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save all settings to arduino", 0);
   buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "save pwm settings to arduino (arduino reset required)", 0);
-  buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "save settings to PC", 0);
+  buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "save all settings to PC", 0);
+
+  // info buttons for displaying some settings
+  String[] enc = new String[2];
+  enc[0] = "opt."; // optical quadrature encoder
+  enc[1] = "mag"; // magnetic encoder
+  infobuttons[0] = new InfoButton (0.05*width + 3.45*60, height-posY-490, 70, 16, 2, enc, "enc. type", 0);
 
   // encoder and pedal calibration buttons
   buttons[0] = new Button(0.05*width + 3.45*60, height-posY-270, 48, 16, "center", "set to 0°", 0);
@@ -458,12 +468,22 @@ void setup() {
     println("Encoder Z-index detected");
   }
   if (bitRead(fwOpt, 2) == 1) { // if bit2=1 - hat Switch suported by firmware (option "h")
-    showSetupText("Hat Switch (D-pad) detected");
-    println("Hat Switch detected");
+    hatsw[0].enabled = true;
+    for (int i=0; i<4; i++) { // 2nd 4 buttons are unavailable if we are not using button matrix or button box
+      if (!BBenabled && !BMenabled) {
+        dugmici[i].enabled = true;
+      }
+    }
+    showSetupText("Hat switch (D-pad) enabled");
+    println("Hat switch enabled");
+  } else { 
+    for (int i=0; i<8; i++) {
+      dugmici[i].enabled = true; // by default we have 8 direct pins for buttons available
+    }
   }
   if (bitRead(fwOpt, 3) == 1) { // of bit3=1 - averaging of analog inputs is supported by firmware (option "i")
-    showSetupText("Averaging of analog inputs for pedals detected");
-    println("Averaging detected");
+    showSetupText("Averaging of analog inputs for pedals enabled");
+    println("Analog input averaging enabled");
     slajderi[1].am = 4095;
     slajderi[2].am = 4095;
     slajderi[3].am = 4095;
@@ -476,13 +496,43 @@ void setup() {
     slajderi[3].am = 2047; // clutch RX-axis 
     slajderi[4].am = 2047; // handbrake RY-axis
   }
-  if (bitRead(fwOpt, 5) == 1) { // if bit5=1 - Arduino ProMicro pinouts suported by firmware (option "m")
-    showSetupText("Arduino ProMicro replacement pinouts detected");
-    println("ProMicro pinouts detected");
-  }
+
   if (bitRead(fwOpt, 6) == 1) { // if bit6=1 - 4x4 button matrix suported by firmware (option "t")
+    for (int i=0; i<16; i++) {
+      if (bitRead(fwOpt, 2) == 1 && i > 11) {  // enable first 16 buttons, except for last 4 if we have hat switch
+        dugmici[i].enabled = false;
+      } else {
+        dugmici[i].enabled = true;
+      }
+    }
     showSetupText("4x4 button matrix detected");
     println("Button matrix detected");
+  }
+  if (BBenabled) { // if button box is supported by firmware, enable first 16 buttons
+    for (int i=0; i<16; i++) {
+      if (bitRead(fwOpt, 2) == 1 && i > 11) {  // enable first 16 buttons, except for last 4 if we have hat switch
+        dugmici[i].enabled = false;
+      } else {
+        dugmici[i].enabled = true;
+      }
+    }
+    if (bitRead(fwOpt2, 4) == 1) { // if bit4=1, we have firmware with 24 buttons supported (option "r")
+      for (int i=0; i<8; i++) {
+        dugmici[16+i].enabled = true; // enable last 8 buttons
+      }
+      showSetupText("24 buttons via shift register detected");
+      println("24 buttons detected");
+    } else { // otherwise is 16 buttons
+      showSetupText("16 buttons via Arduino Nano detected");
+      println("16 buttons detected");
+    }
+  }
+  if (bitRead(fwOpt, 5) == 1) { // if bit5=1 - Arduino ProMicro pinouts suported by firmware (option "m")
+    if (bitRead(fwOpt, 1) == 1 || bitRead(fwOpt, 4) == 1) {
+      dugmici[3].enabled = false; // button3 is unavailable on proMicro if we use zindex, or any i2C device
+    }
+    showSetupText("Arduino ProMicro replacement pinouts detected");
+    println("ProMicro pinouts detected");
   }
   if (!LCenabled) { // max brake slider becomes FFB balance if no load cell
     sliderlabel[11] = "FFB balance L/R";
@@ -499,6 +549,20 @@ void setup() {
   }
   shifters[0] = new XYshifter(width/3.65-16, height-posY-500, 0.25);
   if (XYshifterEnabled) {
+    //if (!LCenabled) dugmici[3].enabled = false;
+    if (bitRead(fwOpt, 5) == 1) { // for option "m" in proMicro we have replacement pins for these buttons
+      dugmici[1].enabled = true;
+      dugmici[2].enabled = true;
+    } else { // for leonardo or micro, these buttons are unavailable when XY shifter is used
+      if (bitRead(fwOpt, 2) == 0) { // if no hat switch on leonardo or micro, we don't have these 4 buttons
+        for (int i=0; i<4; i++) {
+          dugmici[4+i].enabled = false;
+        }
+      }
+    }
+    for (int i=0; i<8; i++) {
+      dugmici[16+i].enabled = true; // enable last 8 buttons for XY shifter gears
+    }
     showSetupText("Analog XY H-shifter detected");
     println("H-shifter detected");
     buttons[11].active = true;
@@ -543,12 +607,36 @@ void setup() {
     buttons[17].active = false;
   }
   if (bitRead(fwOpt2, 0) == 1) { // if bit0=1 - extra buttons suported by firmware (option "e")
-    showSetupText("4x4 button matrix detected");
-    println("Button matrix detected");
+    // we have 2 extra buttons instead of clutch and handbrake
+    if (bitRead(fwOpt, 2) == 1) { // if option "h" then buttons 4,5 are available
+      dugmici[4].enabled = true;
+      dugmici[5].enabled = true;
+    } else {
+      dugmici[8].enabled = true; // else remaped to buttons 8,9
+      dugmici[9].enabled = true;
+    }
+    showSetupText("Two extra buttons detected");
+    println("Extra buttons detected");
   }
   if (bitRead(fwOpt2, 1) == 1) { // if bit1=1 - analog axis for FFB suported by firmware (option "x")
-    showSetupText("Analog axis for FFB detected");
-    println("Analog axis for FFB detected");
+    showSetupText("Analog axis for FFB enabled");
+    println("Analog axis for FFB enabled");
+  }
+  if (bitRead(fwOpt2, 2) == 1) { // if bit2=1 - magnetic angle sensor AS5600 suported by firmware (option "w")
+    if (bitRead(fwOpt, 5) == 1) { // if ProMicro
+      if (bitRead(fwOpt, 2) == 1) { // if hat switch
+        dugmici[3].enabled = false;
+      }
+    }
+    infobuttons[0].as = 1; // set magnetic encoder in info button
+    showSetupText("AS5600 magnetic encoder detected");
+    println("AS5600 detected");
+  } else {
+    infobuttons[0].as = 0; // set optical quadrature encoder in info button
+  }
+  if (bitRead(fwOpt2, 3) == 1) { // if bit3=1 - hardware re-center is suported by firmware (option "c")
+    showSetupText("Hardware re-center button enabled");
+    println("Re-center button enabled");
   }
   if (fwVerNum >= 200) { // if =>fw-v200 - we have additional firmware options
     if (LCenabled) {
@@ -573,13 +661,13 @@ void setup() {
       AFFBenabled = true;
     }
     if (bitRead(fwOpt, 0) == 0) {  // if bit0=0 - pedal autocalibration is disabled, then we have manual pedal calibration
-      println("Manual pcal detected");
+      println("Manual pcal enabled");
       refreshPedalCalibration();
       updateLastPedalCalibration(rb);
-      showSetupText("Manual calibration for pedals detected");
+      showSetupText("Manual calibration for pedals enabled");
       showSetupText(rb);
     } else {
-      showSetupText("Automatic calibration for pedals detected");
+      showSetupText("Automatic calibration for pedals enabled");
       println("Automatic pcal detected");
       buttons[13].active = false; // disable manual cal button if pedal auto calib firmware
     }
@@ -588,6 +676,10 @@ void setup() {
     } else {
       buttons[14].active = false; // inactivate z-reset button
     }
+  }
+  if (fwVerNum >= 240) { // in firmware v240 we are in-activating unavailable buttons, some buttons are re-mapped (just visual fix)
+    dActByp = false; // do not bypass button in-activation
+    infobuttons[0].hiden = false; // un-hide the encoder type info button
   }
   wb = "V";
   executeWR();
@@ -758,6 +850,10 @@ void drawGUI() {
    graphs[i].update();
    //graphs[i].show();
    }*/
+  for (int j = 0; j < infobuttons.length; j++) {
+    infobuttons[j].update();
+    infobuttons[j].show();
+  }
   for (int k = 0; k < buttons.length; k++) {
     buttons[k].update(k);
     buttons[k].show();
@@ -866,7 +962,8 @@ void draw_labels() {
   for (int j = 0; j < sdr.length; j++) { // FFB slider values
     labelStr = str(slider_value[j]);
     if (j == 0 || j == 11) { // only for rotation and brake pressure
-      labelStr=labelStr.substring(0, labelStr.length()-2);
+      labelStr=labelStr.substring(0, labelStr.length()-2); // do not show decimal places
+      if (!LCenabled && j == 11) labelStr = str(slider_value[j]-128).substring(0, (str(slider_value[j]-128)).length()-2); // shift the value such that center iz at zero
     } else if (j == 10) { // only for min PWM
       if (slider_value[j] < 10.0 ) {
         labelStr=labelStr.substring(0, 3);
@@ -887,7 +984,7 @@ void draw_labels() {
     text(sliderlabel[j], sldXoff+width/2-slider_width/3, slider_height/2*(1+j)); // slider label
     text(labelStr, sldXoff+width/2+slider_width+20, slider_height/2*(1+j)); // slider value
   }
-  if (AFFBenabled) text("FFB axis", Xoffset+int(width/3.5) - 14 - 0.6*60, height-posY+2); // FFB axis selector label
+  if (AFFBenabled) text("FFB-axis", Xoffset+int(width/3.5) - 14 - 0.6*60, height-posY+2); // FFB axis selector label
   //text("Couple with pysical wheel turn", 70+1*(slider_width+20), slider_height/2+50);
   //text("Decouple coefs", 70+3*(slider_width+20), slider_height/2+50);
   pushMatrix();
@@ -1091,11 +1188,15 @@ void readFwVersion() { // reads firmware version from String, checks and updates
   fwOpt2 = decodeFwOpts2(fwOpts); // decode fw options into 2nd byte
   String fwVerNumStr = str(fwVerNum);
   int len = fwVerNumStr.length();
+  if (fwVerNumStr.charAt(len-1) == '1') { // if last number is 1
+    BBenabled = true;
+  }
   if (fwVerNumStr.charAt(len-1) == '0' || fwVerNumStr.charAt(len-1) == '1') { // if last number is 0 or 1
     LCenabled = false; // we don't have load cell or dac
     DACenabled = false;
   }
   if (fwVerNumStr.charAt(len-1) == '2') { // if last number is 2
+    BBenabled = true; // we have button box
     LCenabled = true; // we have load cell
   }
   if (fwVerNumStr.charAt(len-1) == '3') { // if last number is 3
@@ -1108,9 +1209,12 @@ void readFwVersion() { // reads firmware version from String, checks and updates
   if (bitRead(fwOpt, 0) == 0) buttons[2].active = false; // if bit0 is LOW (no pedal autocalibration available)
   if (fwVerNum >= 200 && fwVerNum < 210) pwm0_50_100enabled = true;
   if (fwVerNum >= 210) RCMenabled = true;
-  if (bitRead(fwOpt2, 0) == 1) {// if bit0 is HIGH (clutch and handbrake are unavailable)
+  if (bitRead(fwOpt2, 0) == 1) { // if bit0 is HIGH (clutch and handbrake are unavailable)
     clutchenabled = false;
     hbrakeenabled = false;
+  }
+  if (bitRead(fwOpt, 6) == 1) { // if bit6=1 of fw opt 1st byte
+    BMenabled = true; // we have button matrix available
   }
 }
 // decode 1st byte of firmware options
@@ -1123,7 +1227,7 @@ byte decodeFwOpts (String fopt) {
       if (fopt.charAt(j) == 'h') temp = bitWrite(temp, 2, true); // b2=1, hat switch enabled
       if (fopt.charAt(j) == 'i') temp = bitWrite(temp, 3, true); // b3=1, pedal averaging enabled
       if (fopt.charAt(j) == 's') temp = bitWrite(temp, 4, true); // b4=1, external ADC enabled
-      if (fopt.charAt(j) == 'm') temp = bitWrite(temp, 5, true); // b5=1, ProMicro replacement pinouts
+      if (fopt.charAt(j) == 'm') temp = bitWrite(temp, 5, true); // b5=1, proMicro replacement pinouts
       if (fopt.charAt(j) == 't') temp = bitWrite(temp, 6, true); // b6=1, 4x4 button matrix enabled
       if (fopt.charAt(j) == 'f') temp = bitWrite(temp, 7, true); // b7=1, XY analog shifter enabled
     }
@@ -1137,7 +1241,10 @@ byte decodeFwOpts2 (String fopt) {
   if (fopt != "0") { // has firmware any options
     for (int j=0; j<fopt.length(); j++) {
       if (fopt.charAt(j) == 'e') temp = bitWrite(temp, 0, true); // b0=1, extra buttons enabled
-      if (fopt.charAt(j) == 'x') temp = bitWrite(temp, 1, true); // b1=1, analong FFB axis enabled
+      if (fopt.charAt(j) == 'x') temp = bitWrite(temp, 1, true); // b1=1, analog FFB axis enabled
+      if (fopt.charAt(j) == 'w') temp = bitWrite(temp, 2, true); // b2=1, AS5600 enabled
+      if (fopt.charAt(j) == 'c') temp = bitWrite(temp, 3, true); // b3=1, center button enabled
+      if (fopt.charAt(j) == 'r') temp = bitWrite(temp, 4, true); // b4=1, 24 buttons (via 3x8bit SR) enabled
     }
   }
   //println("fw opt2: 0x" + hex(temp));

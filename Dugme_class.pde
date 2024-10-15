@@ -2,11 +2,13 @@ class Dugme {
   float x;
   float y;
   float s;
+  boolean enabled;
 
   Dugme(float posx, float posy, float size) {
     x = posx;
     y = posy;
     s = size;
+    enabled = false;
   }
 
   void update() {
@@ -131,57 +133,65 @@ class Dugme {
       Button[23] = false;
     }
     /*if (gpad.getButton("24").pressed()) {
-      Button[24] = true;
-    } else {
-      Button[24] = false;
-    }
-    if (gpad.getButton("25").pressed()) {
-      Button[25] = true;
-    } else {
-      Button[25] = false;
-    }
-    if (gpad.getButton("26").pressed()) {
-      Button[26] = true;
-    } else {
-      Button[26] = false;
-    }
-    if (gpad.getButton("27").pressed()) {
-      Button[27] = true;
-    } else {
-      Button[27] = false;
-    }
-    if (gpad.getButton("28").pressed()) {
-      Button[28] = true;
-    } else {
-      Button[28] = false;
-    }
-    if (gpad.getButton("29").pressed()) {
-      Button[29] = true;
-    } else {
-      Button[29] = false;
-    }
-    if (gpad.getButton("30").pressed()) {
-      Button[30] = true;
-    } else {
-      Button[30] = false;
-    }*/
-    
+     Button[24] = true;
+     } else {
+     Button[24] = false;
+     }
+     if (gpad.getButton("25").pressed()) {
+     Button[25] = true;
+     } else {
+     Button[25] = false;
+     }
+     if (gpad.getButton("26").pressed()) {
+     Button[26] = true;
+     } else {
+     Button[26] = false;
+     }
+     if (gpad.getButton("27").pressed()) {
+     Button[27] = true;
+     } else {
+     Button[27] = false;
+     }
+     if (gpad.getButton("28").pressed()) {
+     Button[28] = true;
+     } else {
+     Button[28] = false;
+     }
+     if (gpad.getButton("29").pressed()) {
+     Button[29] = true;
+     } else {
+     Button[29] = false;
+     }
+     if (gpad.getButton("30").pressed()) {
+     Button[30] = true;
+     } else {
+     Button[30] = false;
+     }*/
   }
 
   void show(int i) {
+    if (dActByp) enabled = true; // bypass the button in-activation
     int hue;
     if (buttonValue) {
       hue = 64;
     } else {
       hue = 0;
     }
-    fill(hue, 255, 255);
+    if (enabled) {
+      fill(hue, 255, 255); // red
+    } else {
+      fill(0, 0, 100); // gray
+    }
     strokeWeight(1);
     stroke(255);
     rect(x, y, s, s);
     pushMatrix();
     textSize(font_size);
-    fill(0);
+    if (enabled) {
+      fill(0); // black text when activated
+    } else {
+      fill(235); // white-ish text when de-activated
+    }
     if (i<=9) {
       text(i, x+font_size/2, y+font_size*1.2);
     } else {

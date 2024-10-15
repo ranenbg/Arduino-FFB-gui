@@ -4,6 +4,7 @@ class XYshifter {
   float sCal[] = new float[5];
   byte sConfig;
   int gear;
+  int revGearBit;
   xyCal[] xycals = new xyCal[5];
 
   XYshifter(float posx, float posy, float scale) {
@@ -15,6 +16,7 @@ class XYshifter {
     lx = dx/20.0;
     ly = dy/20.0;
     sd = lx;
+    revGearBit = 0;
     xycals[0] = new xyCal(x, y-ly-2, lx, ly, 0, "a");
     xycals[1] = new xyCal(x, y-ly-2, lx, ly, 0, "b");
     xycals[2] = new xyCal(x, y-ly-2, lx, ly, 0, "c");
@@ -123,7 +125,7 @@ class XYshifter {
         rect(xycals[1].x-x+2, -2, xycals[2].x-xycals[1].x-3, xycals[3].y-y-dy+4);
         fill(255);
         String gr;
-        if (Button[0] && bitRead(sConfig, 1) == 0) { // if bit1 of sConfig is LOW - 6 gear mode
+        if (Button[revGearBit] && bitRead(sConfig, 1) == 0) { // if bit1 of sConfig is LOW - 6 gear mode
           gr = "r";
         } else {
           gr = "6";
@@ -145,7 +147,7 @@ class XYshifter {
         rect(xycals[2].x-x+2, -2, dx+x-xycals[2].x-2, xycals[3].y-y-dy+4);
         fill(255);
         String gr;
-        if (Button[0] && bitRead(sConfig, 1) == 1) {  // if bit1 of sConfig is HIGH - 8 gear mode
+        if (Button[revGearBit] && bitRead(sConfig, 1) == 1) {  // if bit1 of sConfig is HIGH - 8 gear mode
           gr = "r";
         } else {
           gr = "8";

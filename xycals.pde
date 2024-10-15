@@ -1,7 +1,7 @@
 class xyCal {
   float x, y, sx, sy;
   float[] limits = new float [4];
-  boolean active, changing, locked;
+  boolean active, changing, grabed;
   int orn;
   String t;
 
@@ -13,13 +13,13 @@ class xyCal {
     t = text;
     active = true;
     changing = false;
-    locked = false;
+    grabed = false;
     orn = orientation; // 0-top, 1-right, 2-bottom, 3-left
   }
 
   void updateColors(int i) {
     if (active) {
-      if (mouseX >= x-sx/2 && mouseX <= x+sx/2 && mouseY >= y-sy/2 && mouseY <= y+sy/2) {
+      if (mouseX >= x-sx/2 && mouseX <= x+sx/2 && mouseY >= y-sy/2 && mouseY <= y+sy/2) { // if mouse pointer is howered over
         controlb[i] = true;
       } else {
         controlb[i] = false;
@@ -36,13 +36,13 @@ class xyCal {
         col[2] = 180;
         thue = 255;
         changing = false;
-      } else if (!controlb[i]) { // red with white text (deactivated)
+      } else if (!controlb[i] || !grabed) { // red with white text (deactivated)
         col[0] = 0;
         col[1] = 200;
         col[2] = 150;
         thue = 255;
         changing = false;
-      }
+      } 
     } else {
       col[0] = 0;
       col[1] = 0;

@@ -57,7 +57,7 @@ class Slajder {
     checkyLimitsLimit(i);
   }
 
-  void setpCal() { // get pedal calibration from wheel control
+  void setpCal() { // set pedal calibration from wheel control
     for (int i=0; i<yLimits.length; i++) {
       if (yLimits[i].changing) {
         getyLimits(i);
