@@ -4,6 +4,8 @@ A graphical user interface for controlling and monitoring all aspects of the **[
 
 ### Screenshot of GUI v2.6.3
 ![plot](./data/Wheel_control_v2_6_3.png)
+![plot](./data/Wheel_control_v2_6_3_pwm_as5600_2ffb_axis.png)
+![plot](./data/Wheel_control_v2_6_3_dac_as5600_2ffb_axis.png)
 
 ## Download - standalone app
 + ***[Latest Release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)***
