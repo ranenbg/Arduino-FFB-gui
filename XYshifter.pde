@@ -13,15 +13,15 @@ class XYshifter {
     s = scale;
     dx = s*1023.0;
     dy = s*1023.0;
-    lx = dx/20.0;
-    ly = dy/20.0;
+    lx = dx/25.5;
+    ly = dy/25.5;
     sd = lx;
     revGearBit = 0;
     xycals[0] = new xyCal(x, y-ly-2, lx, ly, 0, "a");
-    xycals[1] = new xyCal(x, y-ly-2, lx, ly, 0, "b");
+    xycals[1] = new xyCal(x, y+ly+2+dy, lx, ly, 2, "b");
     xycals[2] = new xyCal(x, y-ly-2, lx, ly, 0, "c");
     xycals[3] = new xyCal(x+dx+lx+2, y, lx, ly, 1, "d");
-    xycals[4] = new xyCal(x+dx+lx+2, y, lx, ly, 1, "e");
+    xycals[4] = new xyCal(x+0*dx-lx-2, y, lx, ly, 3, "e");
   }
   void updatePos() { // update shifter xy position form arduino read buffer string
     int[] temp = int(split(rb, ' '));
@@ -185,7 +185,7 @@ class XYshifter {
     noStroke();
     translate(x, y+dy);
     fill(51);
-    rect(-0.025*dx, 0.07*dy, dx*1.15, -dy*1.18); // shifter background
+    rect(-0.025*dx, 0.09*dy, dx*1.15, -dy*1.18); // shifter background
     stroke(255);
     strokeWeight(1);
     noFill();
@@ -195,7 +195,7 @@ class XYshifter {
     text(sName, dx-textWidth(sName), font_size);
     noStroke();
     fill(32, 255, 255);
-    ellipse(shX/1023.0*dx, -shY/1023.0*dy, sd, sd); // current shifter position
+    ellipse(shX/1023.0*dx, -shY/1023.0*dy, sd/2, sd/2); // current shifter position
     getGear(true);
     popMatrix();
     for (int j=0; j<xycals.length; j++) {
@@ -207,36 +207,36 @@ class XYshifter {
   void updatexycalsLimit(int i) { // update shifter calibration values in the scaled units for displaying shifter
     if (i == 0) {
       xycals[i].limits[0]= x + lx/2; // a low limit is 0
-      xycals[i].limits[1]= xycals[i+1].x - lx; // a high limit is b
+      xycals[i].limits[1]= xycals[i+1].x - lx/2; // a high limit is b
     }
     if (i == 1) {
-      xycals[i].limits[0] = xycals[i-1].x + lx; // b low limit is a
-      xycals[i].limits[1] = xycals[i+1].x - lx; // b high limit is c
+      xycals[i].limits[0] = xycals[i-1].x + lx/2; // b low limit is a
+      xycals[i].limits[1] = xycals[i+1].x - lx/2; // b high limit is c
     }
     if (i == 2) {
-      xycals[i].limits[0] = xycals[i-1].x + lx; // c low limit is b
+      xycals[i].limits[0] = xycals[i-1].x + lx/2; // c low limit is b
       xycals[i].limits[1] = x+dx - lx/2; // c high limit is dx
     }
     if (i == 3) {
-      xycals[i].limits[2] = xycals[i+1].y + ly; // d low limit is e
+      xycals[i].limits[2] = xycals[i+1].y + ly/2; // d low limit is e
       xycals[i].limits[3] = y+dy - ly/2; // d high limit is dy
     }
     if (i == 4) {
       xycals[i].limits[2] = y + ly/2; // e low limit is 0
-      xycals[i].limits[3] = xycals[i-1].y - ly; // e high limit is d
+      xycals[i].limits[3] = xycals[i-1].y - ly/2; // e high limit is d
     }
   }
   void checkxycalsLimit(int i) { // checks if scaled cal values are withing limits and limit them if they are not
     if (i < 3) {
       if (xycals[i].x <= xycals[i].limits[0]) {
         xycals[i].x = xycals[i].limits[0];
-      } else if (xycals[i].x >= xycals[i].limits[1]) {
+      } else if (xycals[i].x > xycals[i].limits[1]) {
         xycals[i].x = xycals[i].limits[1];
       }
     } else {
       if (xycals[i].y <= xycals[i].limits[2]) {
         xycals[i].y = xycals[i].limits[2];
-      } else if (xycals[i].y >= xycals[i].limits[3]) {
+      } else if (xycals[i].y > xycals[i].limits[3]) {
         xycals[i].y = xycals[i].limits[3];
       }
     }

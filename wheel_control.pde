@@ -1,6 +1,6 @@
 /*Arduino Force Feedback Wheel User Interface
  
- Copyright 2018-2024  Milos Rankovic (ranenbg [at] gmail [dot] com)
+ Copyright 2018-2025 Milos Rankovic (ranenbg [at] gmail [dot] com)
  
  Permission to use, copy, modify, distribute, and sell this
  software and its documentation for any purpose is hereby granted
@@ -13,7 +13,7 @@
  
  The author disclaim all warranties with regard to this
  software, including all implied warranties of merchantability
- and fitness.  In no event shall the author be liable for any
+ and fitness. In no event shall the author be liable for any
  special, indirect or consequential damages or any damages
  whatsoever resulting from loss of use, data or profits, whether
  in an action of contract, negligence or other tortious action,
@@ -32,8 +32,9 @@ import sprites.utils.*;
 import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
+import javax.swing.JFrame.*;
 
-String cpVer="v2.6.1"; // control panel version
+String cpVer="v2.6.3"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -46,16 +47,17 @@ Domain domain;
 ControlP5 cp5; // Editable Numberbox for ControlP5
 Numberbox num1; // create instance of numberbox class
 
+int num_axis = 5; // number of axis to display
 int num_sldr = 12; //number of FFB sliders
 int num_btn = 24;  //number of wheel buttons
 int ctrl_btn = 18; //number of control buttons
 int ctrl_sh_btn = 5; //number of control buttons for XY shifter
-int ctrl_axis_btn = 8; //number of control buttons for gamepad axis
+int ctrl_axis_btn = 10; //number of control buttons for gamepad axis
 int key_btn = 12;  //number of keyboard function buttons
 int gbuffer = 500; //number of points to show in ffb graph
 int gskip = 8; //ffb monitor graph vertical divider
-int num_profiles = 11; //number of FFB setting profiles (including default profile)
-int num_prfset = 16; //number of FFB settings inside a profile
+int num_profiles = 64; //number of FFB setting profiles (including default profile)
+int num_prfset = 18; //number of FFB settings inside a profile
 int cur_profile; // currently loaded FFB settings profile
 String[] command = new String[num_sldr]; // commands for wheel FFB parameters set
 float[] wParmFFB = new float[num_sldr]; // current wheel FFB parameters
@@ -66,7 +68,9 @@ String[] sliderlabel = new String[num_sldr];
 float[] slider_value = new float[num_sldr];
 boolean parmChanged = false; // keep track if any FFB parm was changed
 boolean wheelMoved = false; // keep track if wheel axis is centered
-float prevaxis = 0.0; // previous steer axis value 
+float prevaxis = 0.0; // previous steer axis value
+int axisScale = 250; // length of axis ruler axisScale
+float posY;
 int[] col = new int[3]; // colors for control buttons, hsb mode
 int thue; // color for text of control button, gray axisScale mode
 boolean[] buttonpressed = new boolean[ctrl_btn]; // true if button is pressed
@@ -83,7 +87,7 @@ int curCPR, lastCPR, CPRdef;
 int maxCPR = 99999; // maximum acceptable CPR by firmware
 float deg_min = 30.0; // minimal allowed angle by firmware
 float deg_max = 1800.0; // maximal allowed angle by firmware
-int maxCPR_turns = maxCPR*int(deg_max/360.0); // maximum acceptable CPRxturns by firmware
+int maxCPR_turns = maxCPR*int(deg_max/360.0); // maximum acceptable CPR*turns by firmware
 float minPWM_max = 20.0; // maximum allowed value for minPWM
 float brake_min = 1.0; // minimal brake pressure
 float brake_max = 255.0; // max brake pressure
@@ -95,7 +99,8 @@ boolean BMenabled = false; // keeps track if button matrix is supported (option 
 boolean LCenabled = false; // keeps track if load cell is supported (3 digit fw's ending with 2)
 boolean DACenabled = false; // keeps track if FFB DAC output is supported in firmware (3 digit fw's ending with 3)
 boolean checkFwVer = true; // when enabled update fwVersion will take place
-boolean enabledac, modedac; // keeps track of DAC output settings
+boolean enabledac; // keeps track if DAC output is not zeroed
+int modedac; // keeps track of DAC output settings
 boolean profileActuated = false; // keeps track if we pressed the profile selection
 boolean CPRlimit = false; // true if we input more than max allowed CPR
 boolean pwm0_50_100enabled = false; // true if firmware supports pwm0.50.100 mode
@@ -107,31 +112,41 @@ int rbt_ms = 0; // read buffer response time in milliseconds
 String FullfwVerStr; // Arduino firmware version including the options
 String fwVerStr; // Arduino firmware version not including the options
 int fwVerNum; // Arduino firmware version digits only
-byte fwOpt; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
-byte fwOpt2; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-e, b1-x, b2-w, b3-c, b4-r, b5-, b6-, b7-)
+byte fwOpt = 0; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
+byte fwOpt2 = 0; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-e, b1-x, b2-w, b3-c, b4-r, b5-b, b6-d, b7-p)
+byte fwOpt3 = 0; // Arduino firmware options 3rd byte, if present bit is HIGH (b0-, b1-l, b2-g, b3-, b4-, b5-, b6-, b7-)
+boolean noOptEnc = false; // true if firmware with "d" option without optical encoder support
+boolean noMagEnc = true; // false if firmware with "w" option which supports magnetic encoder AS5600
 boolean clutchenabled = true; // true if firmware supports clutch analog axis (not the case only for fw option "e")
 boolean hbrakeenabled = true; // true if firmware supports handbrake analog axis (not the case only for fw option "e")
+boolean twoFFBaxis_enabled = false; // true if firmware supports 2 FFB axis (option "b")
 int Xoffset = -44; // X-axis offset for buttons
 boolean XYshifterEnabled = false; // keeps track if XY analog shifter is supported by firmware
 int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
 String[] shCommand = new String[ctrl_sh_btn+3]; // commands for XY shifter settings
 int[] xysParmDef = new int [6]; // XY shifter defaults
 String[] pdlCommand = new String[9]; // commands for pedal calibration
-float[] pdlMinParm = new float [4]; // curent pedal minimum cal values
-float[] pdlMaxParm = new float [4]; // curent pedal maximum cal values
-float[] pdlParmDef = new float [8]; // default pedal cal values
+float[] pdlMinParm = new float [num_axis-1]; // curent pedal minimum cal values
+float[] pdlMaxParm = new float [num_axis-1]; // curent pedal maximum cal values
+float[] pdlParmDef = new float [2*(num_axis-1)]; // default pedal cal values
+int pdlDefMax = 1023; // default pedal Max calibration value for standard firmware
 // pwm frequency selection possibilities - depends on firmware version and RCM mode
 List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz"); // for fw-v200 or lower
 List a1 = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz", "533 Hz", "400 Hz", "244 Hz"); // wider pwm freq selection (fw-v210+), no RCM selected
 List a2_rcm = Arrays.asList("na", "na", "na", "na", "500 Hz", "400 Hz", "200 Hz", "122 Hz", "100 Hz", "61 Hz", "67 Hz", "50 Hz", "30 Hz"); // alternate pwm freq selection if RCM selected
 int allowedRCMfreqID = 4; // first allowed pwm freq ID for RCM mode from the above list (anything after and including 500Hz is allowed)
-int FFBAxisIndex; // index of axis that is tied to the FFB axis (bits 5-7 from effstate byte)
-int setupTextLines = 20; // number of available lines for text in configuration window
+int xFFBAxisIndex; // index of axis that is tied to the xFFB axis (bits 5-7 from effstate byte)
+int yFFBAxisIndex = 1; // index of axis that is tied to the xFFB axis (at the moment fixed to y-axis in firmware)
+int setupTextLines = 24; // number of available lines for text in configuration window
 String[] setupTextBuffer = new String[setupTextLines]; // array that holds all text for configuration window
 int setupTextTimeout_ms = 5000; // show setup text only during this timeout in [ms]
-int setupTextTimer; // keeps track of ms passed since starting to display GUI (configuration and fw readout already done)
-
-GImageToggleButton[] btnToggle = new GImageToggleButton[2];
+int setupTextFadeout_ms = 1500; // durration of setup text fadeout at the end of timeout [ms]
+boolean showSetupText = true; // set to false after timeout + fadeout
+float setupTextInitAlpha = 255; // initial setup text alpha before fadeout
+float setupTextAlpha; // current text setupTextInitAlpha
+int setupTextLength = 0; // keeps track of how many lines of text we have in the setup text buffer
+int ffbx = 0; // x-axis FFB value from FFB monitor
+int ffby = 0; // x-axis FFB value from FFB monitor
 
 ControlIO control;
 Configuration config;
@@ -153,35 +168,20 @@ boolean[] controlb = new boolean[ctrl_btn+ctrl_sh_btn+ctrl_axis_btn]; // true as
 PFont font;
 int font_size = 12;
 
-int axisScale = 250; // length of axis ruler axisScale
-int Nbits = 16; // wheel's X-axis number of bits (resolution)
-int real_wheelTurn = 900; // physical range of wheels rotation in degrees (lock to lock) - what you set in wheel driver
-int lfs_wheelTurn = 900; // software range of wheels rotation in degrees (lock to lock) - what you set in lfs as wheelturn
-int lfs_car_wheelTurn = 450; // software range of car's wheel rotation in degrees (lock to lock) - specific to each lfs car
-float lfs_compensation = 1.0; // lfs compensation factor
-int xAxis_log_max;
-float level, posY;
-
-float coef1; // linear coef
-float coef2; // quadratic coef
-float coef3; // cubic coef
-
 int slider_width = 400;
 int slider_height = 110;
 int sldXoff = 100;
 float slider_max = 2.0;
-int num_axis = 5; // number of axis to display
 color[] axis_color = new color [num_axis];
 
 Wheel[] wheels = new Wheel [1];
 Slajder[] slajderi = new Slajder[num_axis];
 Dugme[] dugmici = new Dugme[num_btn];
 HatSW[] hatsw = new HatSW[1];
-//Graph[] graphs = new Graph [1];
 Dialog[] dialogs = new Dialog [1];
 Button[] buttons = new Button[ctrl_btn];
 Info[] infos = new Info[key_btn];
-FFBgraph[] ffbgraphs = new FFBgraph[1];
+FFBgraph[] ffbgraphs = new FFBgraph[2];
 Profile[] profiles = new Profile[num_profiles];
 XYshifter[] shifters = new XYshifter[1];
 InfoButton[] infobuttons = new InfoButton [1];
@@ -195,15 +195,15 @@ void setup() {
   background(51);
   //PImage icon = loadImage("/data/rane_wheel_rim_O-shape.png");
   //surface.setIcon(icon);
-  println("=======================================================\n  Arduino Leonardo FFB user interface\t\n  wheel control "+cpVer +" created by Milos Rankovic");
-  clearSetupText();
-  showSetupText("Configuring wheel control");
+  println("=======================================================\n  Arduino-FFB-Wheel Graphical User Interface\t\n  Wheel Control "+cpVer +" created by\t\n  Milos Rankovic 2018-2025");
+  clearSetupTextBuffer();
+  showSetupTextLine("Wheel control "+cpVer+" configuration initialized");
   File f = new File(dataPath("COM_cfg.txt"));
   //https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
   if (!f.exists()) showMessageDialog(frame, "COM_cfg.txt was not found in your PC, but do not worry.\nYou either run the app for the 1st time, or you have\ndeleted the configuration file for a fresh start.\n\t\nPress OK to continue with the automatic setup process.", "Arduino FFB Wheel " + cpVer +" - Hello World :)", INFORMATION_MESSAGE);
   if (!f.exists()) showMessageDialog(frame, "Setup will now try to find control IO instances.\n", "Setup - step 1/3", INFORMATION_MESSAGE);
   // Initialise the ControlIO
-  //showSetupText("Initializing IO instances");
+  //showSetupTextLine("Initializing IO instances");
   control = ControlIO.getInstance(this);
   println("Instance:", control);
   // Find a device that matches the configuration file
@@ -212,24 +212,28 @@ void setup() {
   inputdevices = control.deviceListToText("");
   if (!f.exists()) showMessageDialog(frame, "\nThe following devices are found in your PC:\n\t\n"+inputdevices+"\nThe setup will now try to configure each device, but bare in mind that some devices may cause the app to crash.\nIf that happens, you may try to manually create COM_cfg.txt file (see manual.txt in data folder for instructions),\nor you may try to run wheel_control.pde source code from Processsing IDE version 3.5.4.\n", "Setup - list of available devices", INFORMATION_MESSAGE);
   println(inputdevices);
-  //showSetupText("Looking for compatible devices");
+  //showSetupTextLine("Looking for compatible devices");
   gpad = control.getMatchedDevice("Arduino Leonardo wheel v5");
   if (gpad == null) {
-    println("No suitable device found");
-    showSetupText("No suitable device found");
+    println("No suitable HID device found");
+    showSetupTextLine("No suitable HID device found");
     System.exit(-1); // End the program NOW!
   } else {
-    showSetupText("Found device: " + gpad);
-    println("Device:", gpad);
+    showSetupTextLine("HID device: " + gpad);
+    println("HID device:", gpad);
   }
   int r;
   //println("   config:",f.exists());
   if (f.exists()) { // if there is COM_cfg.txt, load serial port number from cfg file
     COMport = loadStrings("/data/COM_cfg.txt");
-    println("COM: loaded from txt");
+    showSetupTextLine("Port: " + COMport[0] + ", loaded from txt");
+    ExportSetupTextLog();
+    //showMessageDialog(frame, "COM_cfg.txt found\nDetected port: " + COMport[0], "Info", INFORMATION_MESSAGE);
+    println("Port: " + COMport[0] + ", loaded from txt");
     myPort = new Serial(this, COMport[0], 115200);
   } else {  // open window for selecting available COM ports
     println("COM: searching...");
+    showSetupTextLine("COM_cfg not found, starting setup wizard.");
     r = COMselector();
     if (r == 0) {
       System.exit(-1); // if errors or Arduino not connected
@@ -240,12 +244,7 @@ void setup() {
       println("config: saved");
     }
   }
-  myPort.bufferUntil(char(10)); // read serial data utill line feed character
-
-  // Open whatever port is the one you're using.
-  //String portName = Serial.list()[2]; //change the 0 to a 1 or 2 etc. to match your port
-  //myPort = new Serial(this, portName, 115200);
-  //myPort = new Serial(this, "COM5", 115200);
+  myPort.bufferUntil(char(10)); // read serial data utill line feed character (we still need to toss carriage return char from input string)
 
   font = createFont("Arial", 16, true);
   textSize(font_size);
@@ -256,7 +255,7 @@ void setup() {
   Domain domain = new Domain(0, 0, width, height);
   sprite[0] = new Sprite(this, "rane_wheel_rim_O-shape.png", 10);
   //sprite[0] = new Sprite(this, "rane_wheel_rim_D-shape.png", 10);
-  //sprite[0] = new Sprite(this, "TX_wheel_rim_small_alpha.png", 10);
+  //sprite[0] = new Sprite(this, "TX_wheel_rim_small_setupTextInitAlpha.png", 10);
   sprite[0].setVelXY(0, 0);
   sprite[0].setXY(0.038*width+0.5*axisScale, posY-72);
   sprite[0].setDomain(domain, Sprite.REBOUND);
@@ -265,17 +264,17 @@ void setup() {
   //sprite[0].setScale(0.9);
 
   //for (int i = 0; i < wheels.length; i++) {
-  wheels[0] = new Wheel(0.05*width+0.5*axisScale, posY-80, axisScale*0.9, str(frameRate));
+  wheels[0] = new Wheel(0.054*width+0.4*axisScale, posY-72, axisScale*0.8, str(frameRate));
   //wheels[1] = new Wheel(width/2+1.8*axisScale, height/2, axisScale*0.9, "LFS car's wheel Y");
   //}
 
   SetAxisColors(); // checks for existing colors in txt file
 
-  slajderi[0] = new Slajder(axis_color[0], width/3.65 + 0*60, height-posY, 10, 65535, "X", "0", "0", false);
-  slajderi[1] = new Slajder(axis_color[1], width/3.65 + 1*60, height-posY, 10, 1023, "Y", "a", "b", false);
-  slajderi[2] = new Slajder(axis_color[2], width/3.65 + 2*60, height-posY, 10, 1023, "Z", "c", "d", false);
-  slajderi[3] = new Slajder(axis_color[3], width/3.65 + 3*60, height-posY, 10, 1023, "RX", "e", "f", false);
-  slajderi[4] = new Slajder(axis_color[4], width/3.65 + 4*60, height-posY, 10, 1023, "RY", "g", "h", false);
+  slajderi[0] = new Slajder(axis_color[0], width/3.65 + 0*60, height-posY, 10, 65535, "X", "c", "d", false, false);
+  slajderi[1] = new Slajder(axis_color[1], width/3.65 + 1*60, height-posY, 10, pdlDefMax, "Y", "a", "b", false, true);
+  slajderi[2] = new Slajder(axis_color[2], width/3.65 + 2*60, height-posY, 10, pdlDefMax, "Z", "c", "d", false, false);
+  slajderi[3] = new Slajder(axis_color[3], width/3.65 + 3*60, height-posY, 10, pdlDefMax, "RX", "e", "f", false, false);
+  slajderi[4] = new Slajder(axis_color[4], width/3.65 + 4*60, height-posY, 10, pdlDefMax, "RY", "g", "h", false, false);
 
   for (int i=0; i<slajderi.length; i++) {
     slajderi[i].update(i);
@@ -297,7 +296,7 @@ void setup() {
   // general control push buttons
   buttons[1] = new Button(Xoffset+width/2 + 6.35*60, height-posY+140, 50, 16, "default", "load default settings", 0);
   buttons[8] = new Button(Xoffset+width/2 + 7.6*60, height-posY+140, 38, 16, "save", "save all settings to arduino", 0);
-  buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "save pwm settings to arduino (arduino reset required)", 0);
+  buttons[9] = new Button(Xoffset+width/2 + 5.3*60, height-posY+140, 38, 16, "pwm", "set and save pwm settings to arduino (arduino reset required)", 0);
   buttons[10] = new Button(Xoffset+width/2 + 10.04*60, height-posY+140, 38, 16, "store", "save all settings to PC", 0);
 
   // info buttons for displaying some settings
@@ -340,17 +339,17 @@ void setup() {
   keys[10] = "-";
   keys[11] = "i";
 
-  description[0] = "read wheel buffer";
-  description[1] = "re-center wheel";
+  description[0] = "read serial buffer";
+  description[1] = "re-center X axis";
   description[2] = "reset encoder Z-index";
   description[3] = "read encoder Z-state";
   description[4] = "reset pedal calibration";
-  description[5] = "read wheel parameters";
-  description[6] = "read wheel version";
-  description[7] = "load FFB defaults";
-  description[8] = "calibrate wheel (endstops)";
-  description[9] = "change rotation by +1deg";
-  description[10] = "change rotation by -1deg";
+  description[5] = "read firmware settings";
+  description[6] = "read frimware version";
+  description[7] = "load default settings";
+  description[8] = "calibrate right endstop";
+  description[9] = "increase rotation (+1deg)";
+  description[10] = "decrease rotation (-1deg)";
   description[11] = "show/hide information";
 
   for (int n = 0; n < infos.length; n++) {
@@ -359,13 +358,6 @@ void setup() {
 
   for (int k = 0; k < hatsw.length; k++) {
     hatsw[k] = new HatSW(0.05*width + 9*28 + 7, height-posY*1.85+1*28 + 10, 14, 48);
-  }
-  /*for (int i = 0; i < graphs.length; i++) {
-   graphs[i] = new Graph(width/2, height/2, axisScale*2, 3);
-   }*/
-  xAxis_log_max = 1;
-  for (int i = 0; i<=Nbits-1; i++) {
-    xAxis_log_max = xAxis_log_max*2;
   }
 
   sliderlabel[0] = "Rotation [deg]";
@@ -383,8 +375,7 @@ void setup() {
 
   for (int j = 0; j < sdr.length; j++) {
     sdr[j] = new GCustomSlider(this, width/2+sldXoff, slider_height/2*j-4, slider_width, slider_height, "red_yellow18px");
-    // Some of the following statements are not actually
-    // required because they are setting the default values only 
+    // Some of the following statements are not actually required because they are setting the default values only 
     sdr[j].setLocalColorScheme(2); 
     sdr[j].setOpaque(false); 
     sdr[j].setNbrTicks(10); 
@@ -396,7 +387,7 @@ void setup() {
     sdr[j].setRotation(0.0, GControlMode.CENTER);
   }
 
-  // default FFB parameters
+  // default FFB parameters and firmware settings
   defParmFFB[0] = 1080.0;
   defParmFFB[1] = 1.0;
   defParmFFB[2] = 0.5;
@@ -412,13 +403,14 @@ void setup() {
   effstatedef = 1; // only autocentering spring is enabled by default
   maxTorquedef = 500;
   CPRdef = 2400;
-  pwmstatedef = 9;
+  pwmstatedef = 12; // fast pwm, 7.8kHz, pwm+-
+  // default XY shifter calibration values
   xysParmDef[0] = 255;
   xysParmDef[1] = 511;
   xysParmDef[2] = 767;
   xysParmDef[3] = 255;
   xysParmDef[4] = 511;
-  xysParmDef[5] = 2; // reverse in 6th gear
+  xysParmDef[5] = 2; // reverse in 6th gear, x-normal, y-normal, b-normal
 
   // commands for adjusting FFB parameters
   command[0] = "G ";
@@ -433,16 +425,7 @@ void setup() {
   command[9] = "FB ";
   command[10] = "FJ ";
   command[11] = "B ";
-  // XY shifter related commands
-  shCommand[0] = "HA ";
-  shCommand[1] = "HB ";
-  shCommand[2] = "HC ";
-  shCommand[3] = "HD ";
-  shCommand[4] = "HE ";
-  shCommand[5] = "HF ";
-  shCommand[6] = "HG";
-  shCommand[7] = "HR";
-  // pedal manual calibration related commands
+  // pedal calibration related commands
   pdlCommand[0] = "YA ";
   pdlCommand[1] = "YB ";
   pdlCommand[2] = "YC ";
@@ -452,19 +435,25 @@ void setup() {
   pdlCommand[6] = "YG ";
   pdlCommand[7] = "YH ";
   pdlCommand[8] = "YR";
+  // XY shifter calibration related commands
+  shCommand[0] = "HA ";
+  shCommand[1] = "HB ";
+  shCommand[2] = "HC ";
+  shCommand[3] = "HD ";
+  shCommand[4] = "HE ";
+  shCommand[5] = "HF ";
+  shCommand[6] = "HG";
+  shCommand[7] = "HR";
 
-  //btnToggle[0] = new GImageToggleButton(this, 10+1*(slider_width+20), slider_height/2+20);
-  //btnToggle[1] = new GImageToggleButton(this, 10+3*(slider_width+20), slider_height/2+20);
-
-  refreshWheelParm(); // update all wheel FFB parms
+  refreshWheelParm(); // update all wheel FFB parms and close FFB mon if left running
   for (int i=0; i < wParmFFB.length; i++) {
     setSliderToParm(i); // update sliders with new wheel FFB parms
   }
+  readFwVersion(); // get Arduino FFB Wheel firmware version
 
-  readFwVersion(); // read Arduino FFB Wheel firmware version
-  // advanced debuging of firmware options
+  // advanced debugging of firmware options
   if (bitRead(fwOpt, 1) == 1) { // if bit1=1 - encoder with Z-index channel suported by firmware (option "z")
-    showSetupText("Encoder with a Z-index detected");
+    showSetupTextLine("Encoder with a Z-index detected");
     println("Encoder Z-index detected");
   }
   if (bitRead(fwOpt, 2) == 1) { // if bit2=1 - hat Switch suported by firmware (option "h")
@@ -474,7 +463,7 @@ void setup() {
         dugmici[i].enabled = true;
       }
     }
-    showSetupText("Hat switch (D-pad) enabled");
+    showSetupTextLine("Hat switch (D-pad) enabled");
     println("Hat switch enabled");
   } else { 
     for (int i=0; i<8; i++) {
@@ -482,19 +471,27 @@ void setup() {
     }
   }
   if (bitRead(fwOpt, 3) == 1) { // of bit3=1 - averaging of analog inputs is supported by firmware (option "i")
-    showSetupText("Averaging of analog inputs for pedals enabled");
+    showSetupTextLine("Averaging of analog inputs for pedals enabled");
     println("Analog input averaging enabled");
-    slajderi[1].am = 4095;
-    slajderi[2].am = 4095;
-    slajderi[3].am = 4095;
-    slajderi[4].am = 4095;
+    pdlDefMax = 4095;
+    slajderi[1].am = pdlDefMax;
+    slajderi[2].am = pdlDefMax;
+    slajderi[3].am = pdlDefMax;
+    slajderi[4].am = pdlDefMax;
   } else if (bitRead(fwOpt, 4) == 1) { // if bit4=1 - external 12bit ADC ads1105 is supported by firmware (option "s")
-    showSetupText("External 12bit ADC ads1105 for pedals detected");
+    showSetupTextLine("External 12bit ADC ads1105 for pedals detected");
     println("ADS1105 detected");
-    slajderi[1].am = 2047; // brake Y-axis 
-    slajderi[2].am = 2047; // accelerator Z-axis 
-    slajderi[3].am = 2047; // clutch RX-axis 
-    slajderi[4].am = 2047; // handbrake RY-axis
+    pdlDefMax = 2047;
+    slajderi[1].am = pdlDefMax; // brake Y-axis 
+    slajderi[2].am = pdlDefMax; // accelerator Z-axis 
+    slajderi[3].am = pdlDefMax; // clutch RX-axis 
+    slajderi[4].am = pdlDefMax; // handbrake RY-axis
+  }
+
+  // default pedal calibration settings (depend on firmware options so we need to read fw version first)
+  for (int i=0; i<pdlMinParm.length; i++) {
+    pdlParmDef[2*i] = 0;
+    pdlParmDef[2*i+1] = pdlDefMax;
   }
 
   if (bitRead(fwOpt, 6) == 1) { // if bit6=1 - 4x4 button matrix suported by firmware (option "t")
@@ -505,7 +502,7 @@ void setup() {
         dugmici[i].enabled = true;
       }
     }
-    showSetupText("4x4 button matrix detected");
+    showSetupTextLine("4x4 button matrix detected");
     println("Button matrix detected");
   }
   if (BBenabled) { // if button box is supported by firmware, enable first 16 buttons
@@ -520,31 +517,31 @@ void setup() {
       for (int i=0; i<8; i++) {
         dugmici[16+i].enabled = true; // enable last 8 buttons
       }
-      showSetupText("24 buttons via shift register detected");
-      println("24 buttons detected");
+      showSetupTextLine("Using shift register: SN74ALS166N (24 buttons)");
+      println("Nano button box detected");
     } else { // otherwise is 16 buttons
-      showSetupText("16 buttons via Arduino Nano detected");
-      println("16 buttons detected");
+      showSetupTextLine("Using shift register: nano button box (16 buttons)");
+      println("SN74ALS166N detected");
     }
   }
   if (bitRead(fwOpt, 5) == 1) { // if bit5=1 - Arduino ProMicro pinouts suported by firmware (option "m")
     if (bitRead(fwOpt, 1) == 1 || bitRead(fwOpt, 4) == 1) {
       dugmici[3].enabled = false; // button3 is unavailable on proMicro if we use zindex, or any i2C device
     }
-    showSetupText("Arduino ProMicro replacement pinouts detected");
+    showSetupTextLine("Arduino ProMicro replacement pinouts detected");
     println("ProMicro pinouts detected");
   }
   if (!LCenabled) { // max brake slider becomes FFB balance if no load cell
     sliderlabel[11] = "FFB balance L/R";
     defParmFFB[11] = 128.0;
   } else {
-    slajderi[1].am = 65535; // update bar graph max value for brake axis 
-    showSetupText("Load Cell brake with HX711 detected");
+    //slajderi[1].am = 65535; // update bar graph max value for brake axis
+    showSetupTextLine("Load Cell brake with HX711 detected");
     println("HX711 detected");
   }
   if (DACenabled) {
-    showSetupText("Analog FFB output via DAC detected");
-    println("DAC detected");
+    showSetupTextLine("Analog FFB output via MCP4725 DAC detected");
+    println("MCP4725 detected");
     sliderlabel[10] = "Min torque DAC [%]";
   }
   shifters[0] = new XYshifter(width/3.65-16, height-posY-500, 0.25);
@@ -563,7 +560,7 @@ void setup() {
     for (int i=0; i<8; i++) {
       dugmici[16+i].enabled = true; // enable last 8 buttons for XY shifter gears
     }
-    showSetupText("Analog XY H-shifter detected");
+    showSetupTextLine("Analog XY H-shifter detected");
     println("H-shifter detected");
     buttons[11].active = true;
     buttons[12].active = true;
@@ -578,7 +575,8 @@ void setup() {
     }
     refreshXYshifterCal(); // get shifter calibration config from arduino
     shifters[0].updateCal(rb); // decode and update shifter cal and config byte values
-    showSetupText(rb);
+    updateLastShifterConfig(); // get shifter cal values into global variables
+    showSetupTextLine(rb);
     if (bitRead(shifters[0].sConfig, 0) == 1) { // if reverse gear button is inverted
       buttonpressed[17] = true;
     } else {
@@ -615,11 +613,11 @@ void setup() {
       dugmici[8].enabled = true; // else remaped to buttons 8,9
       dugmici[9].enabled = true;
     }
-    showSetupText("Two extra buttons detected");
+    showSetupTextLine("Two extra buttons detected");
     println("Extra buttons detected");
   }
   if (bitRead(fwOpt2, 1) == 1) { // if bit1=1 - analog axis for FFB suported by firmware (option "x")
-    showSetupText("Analog axis for FFB enabled");
+    showSetupTextLine("Analog axis for FFB enabled");
     println("Analog axis for FFB enabled");
   }
   if (bitRead(fwOpt2, 2) == 1) { // if bit2=1 - magnetic angle sensor AS5600 suported by firmware (option "w")
@@ -629,14 +627,43 @@ void setup() {
       }
     }
     infobuttons[0].as = 1; // set magnetic encoder in info button
-    showSetupText("AS5600 magnetic encoder detected");
+    noMagEnc = false;
+    showSetupTextLine("AS5600 magnetic encoder detected");
     println("AS5600 detected");
   } else {
+    noMagEnc = true;
     infobuttons[0].as = 0; // set optical quadrature encoder in info button
   }
   if (bitRead(fwOpt2, 3) == 1) { // if bit3=1 - hardware re-center is suported by firmware (option "c")
-    showSetupText("Hardware re-center button enabled");
+    showSetupTextLine("Hardware re-center button enabled");
     println("Re-center button enabled");
+  }
+  if (bitRead(fwOpt2, 6) == 1) { // if bit6=1 - no optical encoder is suported by firmware (option "d")
+    noOptEnc = true;
+    showSetupTextLine("No optical encoder supported");
+    println("No optical encoder supported");
+  } else {
+    noOptEnc = false;
+  }
+  if (bitRead(fwOpt2, 5) == 0) { // if bit5=0, only 1 FFB axis is supported by firmware
+    twoFFBaxis_enabled = false;
+    ffbgraphs[0] = new FFBgraph(width, height-gbuffer/gskip, width, 1);  // FFB graph for X-axis
+  } else { // if bit5=0, only 2 FFB axis are supported by firmware (split-view FFB monitor graphs)
+    String out = "PWM";
+    if (DACenabled) out = "DAC";
+    showSetupTextLine("2 FFB axis and 2 channel " +out+ " output enabled");
+    println("2 FFB axis detected");
+    twoFFBaxis_enabled = true;
+    dugmici[7].enabled = false;
+    gbuffer = 250; // half the graph data points
+    ffbgraphs[0] = new FFBgraph(width, height-gbuffer/gskip, width, 1);  // FFB graph for X-axis
+    ffbgraphs[1] = new FFBgraph(width, height-2*(gbuffer/gskip), width, 1);  // FFB graph for Y-axis
+  }
+  if (noOptEnc && noMagEnc) {
+    infobuttons[0].as = -1; // deactivate both options in info button
+    slajderi[2].yLimits[0].active = false; // disable cal limits on Z-axis
+    slajderi[2].yLimits[1].active = false;
+    slajderi[2].inactive = true; // inactivate Z-axis
   }
   if (fwVerNum >= 200) { // if =>fw-v200 - we have additional firmware options
     if (LCenabled) {
@@ -664,10 +691,13 @@ void setup() {
       println("Manual pcal enabled");
       refreshPedalCalibration();
       updateLastPedalCalibration(rb);
-      showSetupText("Manual calibration for pedals enabled");
-      showSetupText(rb);
+      if (LCenabled) {
+        slajderi[1].am = 65535; // update bar graph max value for brake axis to full 16bit resolution
+      }
+      showSetupTextLine("Manual calibration for pedals enabled");
+      showSetupTextLine(rb);
     } else {
-      showSetupText("Automatic calibration for pedals enabled");
+      showSetupTextLine("Automatic calibration for pedals enabled");
       println("Automatic pcal detected");
       buttons[13].active = false; // disable manual cal button if pedal auto calib firmware
     }
@@ -677,6 +707,13 @@ void setup() {
       buttons[14].active = false; // inactivate z-reset button
     }
   }
+  if (bitRead(fwOpt2, 7) == 1) { // if bit7 of firmware options byte2 is HIGH, EEPROM is not used in firmware
+    showSetupTextLine("EEPROM is not used");
+    println("EEPROM is not used");
+  } else {
+    showSetupTextLine("Using EEPROM to load/save settings");
+    println("Using EEPROM to load/save settings");
+  }
   if (fwVerNum >= 240) { // in firmware v240 we are in-activating unavailable buttons, some buttons are re-mapped (just visual fix)
     dActByp = false; // do not bypass button in-activation
     infobuttons[0].hiden = false; // un-hide the encoder type info button
@@ -684,10 +721,7 @@ void setup() {
   wb = "V";
   executeWR();
 
-  //FFB graph
-  ffbgraphs[0] = new FFBgraph(width, height-gbuffer/gskip, width, 1);
-
-  // create number box object
+  // create number box object for CPR adjustment
   cp5 = new ControlP5(this);
   num1 = cp5.addNumberbox("CPR")
     .setSize(45, 18)
@@ -697,12 +731,17 @@ void setup() {
     ;               
   makeEditable(num1);
 
+  // create scrolable list object for PWM adjustment
   cp5 = new ControlP5(this);
-  List b = Arrays.asList("fast top", "phase corr");
+  List b = Arrays.asList("fast pwm", "phase corr");
   List c = Arrays.asList("pwm +-", "pwm+dir");
   List c1 = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100");
   List c2_rcm = Arrays.asList("pwm +-", "pwm+dir", "pwm0-50-100", "rcm");
+  List c3_2pwm = Arrays.asList("2ch pwm +-", "2ch pwm+dir", "2ch pwm0-50-100", "2ch rcm");
   List d = Arrays.asList("dac +-", "dac+dir");
+  List d_250 = Arrays.asList("dac +-", "dac+dir", "dac0-50-100");
+  List d_250_2ch = Arrays.asList("1ch dac +- (xFFB)", "2ch dac+dir", "2ch dac0-50-100");
+  List d2 = Arrays.asList("dac off", "dac on");
   List e = Arrays.asList("default");
   /* add a ScrollableList, by default it behaves like a DropdownList */
   cp5.addScrollableList("profile")
@@ -725,12 +764,16 @@ void setup() {
   for (int i =0; i<num_prfset; i++) {
     empty[i] = 0.0;
   }
-  profiles[0] = new Profile("default", def); //create default profile
+  String pdef = str(int(pdlParmDef[0])) + ' ' + str(int(pdlParmDef[1])) + ' ' + str(int(pdlParmDef[2])) + ' ' + str(int(pdlParmDef[3])) + ' ' + str(int(pdlParmDef[4])) + ' ' + str(int(pdlParmDef[5])) + ' ' + str(int(pdlParmDef[6])) + ' ' + str(int(pdlParmDef[7]));
+  String sdef = str(xysParmDef[0]) + ' ' + str(xysParmDef[1]) + ' ' + str(xysParmDef[2]) + ' ' + str(xysParmDef[3]) + ' ' + str(xysParmDef[4]) + ' ' + str(xysParmDef[5]);
+  String pempty = "0 0 0 0 0 0 0 0";
+  String sempty = "0 0 0 0 0 0";
+  profiles[0] = new Profile("default", def, pdef, sdef); //create default profile
   for (int i=1; i<num_profiles; i++) {
-    profiles[i] = new Profile("slot"+str(i), empty); //create remaining profiles
+    profiles[i] = new Profile("slot"+str(i), empty, pempty, sempty); //create remaining profiles
     cp5.get(ScrollableList.class, "profile").addItem(profiles[i].name, empty);
   }
-  if (!enabledac) {
+  if (!DACenabled) {
     /* add a ScrollableList, by default it behaves like a DropdownList */
     cp5.addScrollableList("frequency")
       .setPosition(Xoffset+int(width/3.5) - 15 + 564, height-posY+30+108)
@@ -740,7 +783,7 @@ void setup() {
       .addItems(a)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
-    if (RCMenabled) { // fw-v210 has bigger pwm frequency selection
+    if (RCMenabled) { // fw-v210 has larger pwm frequency selection
       cp5.get(ScrollableList.class, "frequency").removeItems(a);
       cp5.get(ScrollableList.class, "frequency").addItems(a1);
     }
@@ -760,12 +803,20 @@ void setup() {
       .addItems(c)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
-    if (pwm0_50_100enabled) { // fw-v200 has pwm0.50.100 mode added
+    if (twoFFBaxis_enabled) { // fw-v240b has 2ch PWM+- mode instead of 1ch PWM+-
       cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
-      cp5.get(ScrollableList.class, "pwmmode").addItems(c1);
-    } else if (RCMenabled) { // fw-v210 has RCM mode added
-      cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
-      cp5.get(ScrollableList.class, "pwmmode").addItems(c2_rcm);
+      cp5.get(ScrollableList.class, "pwmmode").addItems(c3_2pwm);
+      cp5.get(ScrollableList.class, "pwmtype").setPosition(Xoffset+int(width/3.5) - 15 + 373, height-posY+30+108);
+      cp5.get(ScrollableList.class, "pwmmode").setPosition(Xoffset+int(width/3.5) - 15 + 454, height-posY+30+108);
+      cp5.get(ScrollableList.class, "pwmmode").setSize(94, 100);
+    } else {
+      if (pwm0_50_100enabled) { // fw-v200 has pwm0.50.100 mode added
+        cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
+        cp5.get(ScrollableList.class, "pwmmode").addItems(c1);
+      } else if (RCMenabled) { // fw-v210 has RCM mode added
+        cp5.get(ScrollableList.class, "pwmmode").removeItems(c);
+        cp5.get(ScrollableList.class, "pwmmode").addItems(c2_rcm);
+      }
     }
     //println(pwm0_50_100enabled+" "+RCMenabled);
     cp5.get(ScrollableList.class, "frequency").close();
@@ -775,7 +826,7 @@ void setup() {
     cp5.get(ScrollableList.class, "frequency").setValue(freqpwm);
     cp5.get(ScrollableList.class, "pwmtype").setValue(int(typepwm));
     cp5.get(ScrollableList.class, "pwmmode").setValue(int(modepwm));
-  } else {
+  } else { // if DAC enabled
     cp5.addScrollableList("dacmode")
       .setPosition(Xoffset+int(width/3.5) - 15 + 9.4*60, height-posY+30+108)
       .setSize(60, 100)
@@ -784,27 +835,53 @@ void setup() {
       .addItems(d)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
-    buttons[9].t =  " dac";
+    buttons[9].t = " dac";
+    buttons[9].d = "set and save dac settings to arduino (no restart required)";
+    if (fwVerNum >= 250 && !twoFFBaxis_enabled) {
+      cp5.get(ScrollableList.class, "dacmode").removeItems(d);
+      cp5.get(ScrollableList.class, "dacmode").addItems(d_250);
+      cp5.get(ScrollableList.class, "dacmode").setSize(74, 100);
+      cp5.get(ScrollableList.class, "dacmode").setPosition(Xoffset+int(width/3.5) - 20 + 9.2*60, height-posY+30+108);
+    } else if (fwVerNum >= 250 && twoFFBaxis_enabled) {
+      cp5.get(ScrollableList.class, "dacmode").removeItems(d);
+      cp5.get(ScrollableList.class, "dacmode").addItems(d_250_2ch);
+      cp5.get(ScrollableList.class, "dacmode").setSize(90, 100);
+      cp5.get(ScrollableList.class, "dacmode").setPosition(Xoffset+int(width/3.5) - 20 + 9.0*60, height-posY+30+108);
+    }
     cp5.get(ScrollableList.class, "dacmode").close();
     cp5.get(ScrollableList.class, "dacmode").setValue(int(modedac));
+    cp5.addScrollableList("dacout")
+      .setPosition(Xoffset+int(width/3.5) - 5 + 7.6*60, height-posY+30+108)
+      .setSize(53, 100)
+      .setBarHeight(20)
+      .setItemHeight(20)
+      .addItems(d2)
+      //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
+      ;
+    if (!twoFFBaxis_enabled) cp5.get(ScrollableList.class, "dacout").setPosition(Xoffset+int(width/3.5) + 4 + 7.6*60, height-posY+30+108);
+    cp5.get(ScrollableList.class, "dacout").close();
+    cp5.get(ScrollableList.class, "dacout").setValue(int(enabledac));
   }
   if (AFFBenabled) { // if firmware supports analog FFB axis
-    List fb = Arrays.asList("x-enc", "y-brk", "z-acc", "rx-clt", "ry-hbr");
-    if (bitRead(fwOpt, 5) == 1 && bitRead(fwOpt, 7) == 1) fb = Arrays.asList("x-enc", "y-brk", "z-acc"); // if "f" and "m" options, we don't have clutch and hbrake axis available
-    cp5.addScrollableList("FFBaxis")
-      .setPosition(Xoffset+int(width/3.5) - 15 - 0.6*60, height-posY+5)
-      .setSize(50, 100)
+    String xm = "enc";
+    if (noOptEnc && noMagEnc) xm = "pot"; // x-axis is on analog input, potentiometer
+    List fb = Arrays.asList("x-"+xm, "y-brk", "z-acc", "rx-clt", "ry-hbr");
+    if (bitRead(fwOpt, 5) == 1 && bitRead(fwOpt, 7) == 1) fb = Arrays.asList("x-"+xm, "y-brk", "z-acc"); // if "f" and "m" options, we don't have clutch and hbrake axis available
+    cp5.addScrollableList("xFFBaxis")
+      .setPosition(Xoffset+int(width/3.5) - 19 - 0.85*60, height-posY+5)
+      .setSize(60, 100)
       .setBarHeight(20)
       .setItemHeight(20)
       .addItems(fb)
       //.setType(ScrollableList.DROPDOWN) // currently supported DROPDOWN and LIST
       ;
-    cp5.get(ScrollableList.class, "FFBaxis").close();
-    cp5.get(ScrollableList.class, "FFBaxis").setValue(int(FFBAxisIndex));
+    cp5.get(ScrollableList.class, "xFFBaxis").close();
+    cp5.get(ScrollableList.class, "xFFBaxis").setValue(int(xFFBAxisIndex));
   }
   loadProfiles(); // check if exists and load profiles from txt
-  showSetupText("Configuration done");
-  setupTextTimer = 0;
+  showSetupTextLine("Configuration done");
+  ExportSetupTextLog();
+  setupTextAlpha = setupTextInitAlpha;
 }
 
 void draw() {
@@ -814,9 +891,6 @@ void draw() {
 
 void drawGUI() {
   draw_labels();
-  /*for (int j = 0; j < btnToggle.length; j++) {
-   handleToggleButtonEvents(btnToggle[j], j);
-   }*/
   for (int i = 0; i < slajderi.length; i++) {
     slajderi[i].update(i);
     slajderi[i].show();
@@ -831,25 +905,21 @@ void drawGUI() {
     hatsw[k].show();
     hatsw[k].showArrow();
   }
-  // my simple animated wheel gfx
-  wheels[0].update(slajderi[FFBAxisIndex].axisVal*wParmFFB[0]/2); // update the angle in units of degrees
-  wheels[0].showDeg(); // show the angle in units of degrees in a nice number format
-  //wheels[0].show();
-
-  // animated wheel from png sprite
-  if (!buttonpressed[7]) {
-    S4P.updateSprites(1);
-    sprite[0].setRot(slajderi[FFBAxisIndex].axisVal*wParmFFB[0]/2/180*PI); // set the angle of the sprite in units of radians
-    S4P.drawSprites();
+  if (!twoFFBaxis_enabled) {
+    // my simple animated wheel gfx
+    wheels[0].updateWheel(slajderi[xFFBAxisIndex].axisVal*wParmFFB[0]/2); // update the angle in units of degrees
+    wheels[0].showWheelDeg(); // show the angle in units of degrees in a nice number format
+    //wheels[0].showWheel();
+    if (!buttonpressed[7]) {
+      S4P.updateSprites(1);  // animated wheel from png sprite
+      sprite[0].setRot(slajderi[xFFBAxisIndex].axisVal*wParmFFB[0]/2/180*PI); // set the angle of the sprite in units of radians
+      S4P.drawSprites();
+    }
+  } else {
+    wheels[0].updateJoy(slajderi[xFFBAxisIndex].axisVal, slajderi[1].axisVal); // xFFB on X-axis, yFFB on Y-axis
+    wheels[0].showJoy();
+    wheels[0].showJoyPos();
   }
-
-  //wheels[1].update();
-  //axisValue = correct_axis(Axis[0]);
-  //wheels[1].show();
-  /*for (int i = 0; i < graphs.length; i++) {
-   graphs[i].update();
-   //graphs[i].show();
-   }*/
   for (int j = 0; j < infobuttons.length; j++) {
     infobuttons[j].update();
     infobuttons[j].show();
@@ -861,29 +931,35 @@ void drawGUI() {
   for (int l = 0; l < infos.length; l++) {
     infos[l].show(enableinfo);
   }
-  for (int m = 0; m < ffbgraphs.length; m++) {
-    if (buttonpressed[7]) {
-      for (int i=0; i<ceil(gbuffer / frameRate); i++) {
-        String temprb = readString();
-        if (temprb != "empty") {
-          ffbgraphs[m].update(temprb);
-        }
-      }
-      ffbgraphs[m].show();
-    } else {
-      if (fbmnstp) { // read remaining serial read buffer content
-        String temprb = "";
-        for (int i=0; i<gskip+1; i++) {
-          String tempString = readString();
-          if (tempString != "empty") {
-            temprb = rb;
-            ffbgraphs[m].update(temprb);
+  if (buttonpressed[7]) {
+    int gmult = 1;
+    if (twoFFBaxis_enabled) gmult = 2;
+    for (int i=0; i<ceil(gbuffer / frameRate * gmult); i++) {
+      String temprb = readString();
+      if (temprb != "empty") {
+        if (twoFFBaxis_enabled) {
+          int[] val = int(split(temprb, ' '));
+          if (val.length > 1) {
+            ffbx = val[0]; // X-axis FFB data
+            ffby = val[1]; // Y-axis FFB data
+            ffbgraphs[0].update(str(ffbx));
+            ffbgraphs[1].update(str(ffby));
           }
+        } else {
+          ffbgraphs[0].update(temprb); // X-axis FFB data
         }
-        ffbgraphs[m].show();
-        rb = temprb; // restore read buffer
-        fbmnstp = false;
       }
+    }
+    ffbgraphs[0].show(0); // X-axis FFB data
+    if (twoFFBaxis_enabled) ffbgraphs[1].show(1); // Y-axis FFB data
+  } else {
+    if (fbmnstp) { // read remaining serial read buffer content
+      String temprb = "";
+      while (readString() != "empty") {
+        temprb = rb;
+      }
+      rb = temprb; // restore read buffer
+      fbmnstp = false;
     }
   }
   if (buttonpressed[7]) {
@@ -913,47 +989,18 @@ void drawGUI() {
     buttons[11].active = false; // disable XY shifter button while we are running ffb monitor
     //buttons[12].active = false; // disable shifter r button while we are running ffb monitor
   }
-  if (FFBAxisIndex != 0) { // if X-axis is not tied to FFB axis
-    buttons[0].active = false; // disable center button
-    buttons[14].active = false; // disable z button
-  } else {
-    buttons[0].active = true; // re-enable center button
-    if (bitRead(fwOpt, 1) == 1) buttons[14].active = true; // re-enable z button if supported by firmware
+  //if (xFFBAxisIndex != 0) { // if X-axis is not tied to FFB axis
+  //buttons[0].active = false; // disable center button
+  //buttons[14].active = false; // disable z button
+  //} else {
+  //buttons[0].active = true; // re-enable center button
+  if (noOptEnc && noMagEnc) buttons[0].active = false; // disable center button if we have no digital encoders
+  if (twoFFBaxis_enabled) buttons[0].d = "set x to 0%";
+  if (bitRead(fwOpt, 1) == 1) buttons[14].active = true; // re-enable z button if supported by firmware
+  //}
+  if (showSetupText) {
+    animateSetupTextBuffer(frameCount);
   }
-  draw_setupText();
-  setupTextTimer = (frameCount / round(frameRate))*1000; // update timer for showing setup text
-}
-
-float correct_axis (float input) { // range of input is -1 to 1
-
-  //coef1 = lfs_wheelTurn/lfs_car_wheelTurn;
-  //coef2 = 0.0;
-  //coef3 = lfs_compensation*1-coef1;
-
-  float temp1, temp2;
-  //float temp3, temp4, temp5;
-  temp1 = input*coef1+input*input*coef2+input*input*input*coef3; // cubic function
-  //temp2 = input*coef1; // linear function
-  //temp3 = temp2 - temp1; // difference from linear function
-  //temp4 = temp2 + temp3; // mirrored cubic function
-  constrain(temp1, -1, 1);
-
-  if (lfs_compensation == 0.0) { // if not compensation
-    temp2 = input*lfs_car_wheelTurn/2;
-  } else { // if compensation >=0.01
-    if (lfs_wheelTurn >= lfs_car_wheelTurn) {
-      temp2 = input*real_wheelTurn/2;
-    } else { // is less
-      temp2 = temp1*lfs_car_wheelTurn/2;
-    }
-  }
-  if (temp2 >= lfs_car_wheelTurn/2) { // limit the range of output to car's wheel range
-    temp2 = lfs_car_wheelTurn/2;
-  } 
-  if (temp2 <= -lfs_car_wheelTurn/2) {
-    temp2 = -lfs_car_wheelTurn/2;
-  }
-  return temp2;
 }
 
 void draw_labels() {
@@ -984,44 +1031,17 @@ void draw_labels() {
     text(sliderlabel[j], sldXoff+width/2-slider_width/3, slider_height/2*(1+j)); // slider label
     text(labelStr, sldXoff+width/2+slider_width+20, slider_height/2*(1+j)); // slider value
   }
-  if (AFFBenabled) text("FFB-axis", Xoffset+int(width/3.5) - 14 - 0.6*60, height-posY+2); // FFB axis selector label
-  //text("Couple with pysical wheel turn", 70+1*(slider_width+20), slider_height/2+50);
-  //text("Decouple coefs", 70+3*(slider_width+20), slider_height/2+50);
+  if (AFFBenabled) {
+    text("xFFB-axis", Xoffset+int(width/3.5) - 18 - 0.85*60, height-posY+2); // xFFB axis selector label
+  }
+  // about info display
   pushMatrix();
   translate(width/3.5, height-159);
   text("Arduino FFB Wheel, HEX " + FullfwVerStr.substring(3, FullfwVerStr.length()), 0, 0);
   text("Control Panel " + cpVer, 0, 20);
-  text("Miloš Ranković 2018-2024 ©", 0, 40);
+  text("Miloš Ranković 2018-2025 ©", 0, 40);
   text("ranenbg@gmail.com, paypal@ranenbg.com", 0, 60);
   popMatrix();
-}
-
-// Event handler for image toggle buttons
-void handleToggleButtonEvents(GImageToggleButton button, int btnID) { 
-  //println(button + "   State: " + button.getState());
-  /*if (btnID == 0) {
-   if (button.getState() == 1) { // button on coupled
-   real_wheelTurn = 80+int(sdr[1].getValueF()*1000.0);
-   sdr[0].setValue(sdr[1].getValueF());
-   } else { // button off decaupled - default
-   real_wheelTurn = 80+int(sdr[0].getValueF()*1000.0);
-   }
-   }
-   if (btnID == 1) { // button on - decouple
-   if (button.getState() == 1) {
-   coef1 = sdr[4].getValueF();
-   coef2 = sdr[5].getValueF();
-   coef3 = sdr[6].getValueF();
-   } else { // button off - default
-   coef3 = sdr[3].getValueF();
-   lfs_compensation = coef3;
-   coef2 = 0;
-   coef1 = 1.0-coef3;
-   sdr[4].setValue(coef1);
-   sdr[5].setValue(coef2);
-   sdr[6].setValue(coef3);
-   }
-   }*/
 }
 
 void writeString(String input) {
@@ -1041,21 +1061,6 @@ String readString() {
   }
   return rb;
 }
-
-/*void serialEvent(Serial myPort) {
- String temp;
- try {
- temp = myPort.readStringUntil(char(10));  // read till terminator char - LF (line feed) and store it in rb
- if (temp != null) { // if there is something in rb
- temp = temp.substring(0, (rb.indexOf(char(13)))); // remove last 2 chars - Arduino sends both CR+LF, char(13)+char(10)
- }
- rb = temp;
- println("Serial event: " + temp);
- }
- catch(RuntimeException e) {
- e.printStackTrace();
- }
- }*/
 
 void executeWR() {
   rbt_ms = 0;
@@ -1078,15 +1083,15 @@ void refreshWheelParm() {
   myPort.clear();
   writeString("U");
   if (UpdateWparms(readParmUntillEmpty())) {
-    showSetupText("Firmware: OK, reading config");
-    showSetupText(rb);
-    println("Arduino FFB Wheel detected");
+    showSetupTextLine("Firmware settings detected");
+    showSetupTextLine(rb);
+    println("Firmware settings detected");
   } else {
-    showSetupText("Firmware: ERROR");
-    println("Incompatible firmware detected");
+    showSetupTextLine("Incompatible firmware settings");
+    println("Incompatible firmware settings");
   }
   if (bitRead(effstate, 4) == 1) { // if FFB mon is running
-    showSetupText("De-activating FFB monitor");
+    showSetupTextLine("De-activating FFB monitor");
     println("De-activating FFB monitor");
     effstate = bitWrite(effstate, 4, false); // turn it OFF
     sendEffstate(); // send command to Arduino
@@ -1101,7 +1106,7 @@ void refreshWheelParm() {
   readPWMstate();
   print(int(effstate));
   //print(" ");
-  //print("read: " + int(FFBAxisIndex));
+  //print("read: " + int(xFFBAxisIndex));
   print(" ");
   print(maxTorque);
   print(" ");
@@ -1109,14 +1114,26 @@ void refreshWheelParm() {
   print(" ");
   print(int(pwmstate));
   println("; " + str(rbt_ms) + "ms");
-  /*print(typepwm);
-   print(" ");
-   print(modepwm);
-   print(" ");
-   println(freqpwm);*/
-  //println(enabledac, modedac);
 }
 
+String readParmUntillEmpty() { // reads serial buffer untill empty and returns a string longer than 11 chars (non-FFB monitor data)
+  String buffer = "";
+  String temp = "";
+  rbt_ms = 0;
+  for (int i=0; i<999; i++) {
+    temp = readString();
+    if (temp != "empty") {
+      if (temp.length() > 11) {
+        buffer = temp;
+        break;
+      }
+    } else {
+      rbt_ms++;
+      delay(1);
+    }
+  }
+  return buffer;
+}
 
 boolean UpdateWparms(String input) { // decode wheel parameters into FFB, CPR and PWM settings and returns false if format is incorrect
   boolean correct;
@@ -1151,31 +1168,13 @@ boolean UpdateWparms(String input) { // decode wheel parameters into FFB, CPR an
   return correct;
 }
 
-String readParmUntillEmpty() { // reads serial buffer untill empty and returns a string longer than 5 chars (non-FFB monitor data)
-  String buffer = "";
-  String temp = "";
-  rbt_ms = 0;
-  for (int i=0; i<999; i++) {
-    temp = readString();
-    if (temp != "empty") {
-      if (temp.length() > 6) { // 5 digits + sign
-        buffer = temp;
-        break;
-      }
-    } else {
-      rbt_ms++;
-      delay(1);
-    }
-  }
-  return buffer;
-}
-
 void readFwVersion() { // reads firmware version from String, checks and updates all firmware options
   myPort.clear();
   println("Reading firmware version");
   wb = "V";
   executeWR();
   FullfwVerStr = rb;
+  showSetupTextLine("HEX version: " + FullfwVerStr);
   fwVerStr = rb.substring(4); // first 4 chars are allways "fw-v", followed by 3 numbers
   String fwTemp = fwVerStr;
   String fwOpts = "0";
@@ -1186,22 +1185,41 @@ void readFwVersion() { // reads firmware version from String, checks and updates
   fwVerNum = parseInt(fwVerStr);
   fwOpt = decodeFwOpts(fwOpts); // decode fw options into 1st byte
   fwOpt2 = decodeFwOpts2(fwOpts); // decode fw options into 2nd byte
+  fwOpt3 = decodeFwOpts3(fwOpts); // decode fw options into 2nd byte
   String fwVerNumStr = str(fwVerNum);
   int len = fwVerNumStr.length();
-  if (fwVerNumStr.charAt(len-1) == '1') { // if last number is 1
-    BBenabled = true;
-  }
-  if (fwVerNumStr.charAt(len-1) == '0' || fwVerNumStr.charAt(len-1) == '1') { // if last number is 0 or 1
-    LCenabled = false; // we don't have load cell or dac
-    DACenabled = false;
-  }
-  if (fwVerNumStr.charAt(len-1) == '2') { // if last number is 2
-    BBenabled = true; // we have button box
-    LCenabled = true; // we have load cell
-  }
-  if (fwVerNumStr.charAt(len-1) == '3') { // if last number is 3
-    LCenabled = true; // we have load cell and dac
-    DACenabled = true;
+  if (fwVerNum < 250) { // for all firmware prior to fw-v250
+    if (fwVerNumStr.charAt(len-1) == '0' || fwVerNumStr.charAt(len-1) == '1') { // if last number is 0 or 1
+      LCenabled = false; // we don't have load cell or dac
+      DACenabled = false;
+    }
+    if (fwVerNumStr.charAt(len-1) == '1') { // if last number is 1
+      BBenabled = true;
+    }
+    if (fwVerNumStr.charAt(len-1) == '2') { // if last number is 2
+      BBenabled = true; // we have button box
+      LCenabled = true; // we have load cell
+    }
+    if (fwVerNumStr.charAt(len-1) == '3') { // if last number is 3
+      LCenabled = true; // we have load cell and dac
+      DACenabled = true;
+    }
+  } else { // for fw-v250 and onward I have changed how we interpret firmware version - load cell, button box and dac are firmware options now
+    if (bitRead(fwOpt3, 0) == 1) { // if bit0 is HIGH (option "n" - button box)
+      BBenabled = true;
+    } else {
+      BBenabled = false;
+    }
+    if (bitRead(fwOpt3, 1) == 1) { // if bit1 is HIGH (option "l" - load cell)
+      LCenabled = true;
+    } else {
+      LCenabled = false;
+    }
+    if (bitRead(fwOpt3, 2) == 1) { // if bit2 is HIGH (option "g" - external dac)
+      DACenabled = true;
+    } else {
+      DACenabled = false;
+    }
   }
   if (bitRead(fwOpt, 7) == 1) { // if bit7 is HIGH (xy shifter bit)
     XYshifterEnabled = true;
@@ -1245,9 +1263,25 @@ byte decodeFwOpts2 (String fopt) {
       if (fopt.charAt(j) == 'w') temp = bitWrite(temp, 2, true); // b2=1, AS5600 enabled
       if (fopt.charAt(j) == 'c') temp = bitWrite(temp, 3, true); // b3=1, center button enabled
       if (fopt.charAt(j) == 'r') temp = bitWrite(temp, 4, true); // b4=1, 24 buttons (via 3x8bit SR) enabled
+      if (fopt.charAt(j) == 'b') temp = bitWrite(temp, 5, true); // b5=1, 2 FFB axis (2nd PWM output) enabled
+      if (fopt.charAt(j) == 'd') temp = bitWrite(temp, 6, true); // b6=1, no optical encoder
+      if (fopt.charAt(j) == 'p') temp = bitWrite(temp, 7, true); // b7=1, no EEPROM
     }
   }
   //println("fw opt2: 0x" + hex(temp));
+  return temp;
+}
+// decode 2nd byte of firmware options
+byte decodeFwOpts3 (String fopt) {
+  byte temp = 0;
+  if (fopt != "0") { // has firmware any options
+    for (int j=0; j<fopt.length(); j++) {
+      if (fopt.charAt(j) == 'n') temp = bitWrite(temp, 0, true); // b=0, nano button box enabled
+      if (fopt.charAt(j) == 'l') temp = bitWrite(temp, 1, true); // b=1, load cell enabled
+      if (fopt.charAt(j) == 'g') temp = bitWrite(temp, 2, true); // b=1, external dac enabled
+    }
+  }
+  //println("fw opt3: 0x" + hex(temp));
   return temp;
 }
 
@@ -1315,6 +1349,7 @@ void mouseReleased() {
     } else { // if unpressed
       shifters[0].sConfig = bitWrite(shifters[0].sConfig, 1, false); // set sConfig bit1 LOW - 6 gear mode
     }
+    shifterLastConfig[5] = shifters[0].sConfig;
     wb = shCommand[5] + str(shifters[0].sConfig);
     executeWR();
   }
@@ -1325,6 +1360,7 @@ void mouseReleased() {
     } else { // if unpressed
       shifters[0].sConfig = bitWrite(shifters[0].sConfig, 2, false); // set sConfig bit1 LOW - X-axis normal
     }
+    shifterLastConfig[5] = shifters[0].sConfig;
     wb = shCommand[5] + str(shifters[0].sConfig);
     executeWR();
   }
@@ -1335,6 +1371,7 @@ void mouseReleased() {
     } else { // if unpressed
       shifters[0].sConfig = bitWrite(shifters[0].sConfig, 3, false); // set sConfig bit1 LOW - Y-axis normal
     }
+    shifterLastConfig[5] = shifters[0].sConfig;
     wb = shCommand[5] + str(shifters[0].sConfig);
     executeWR();
   }
@@ -1345,15 +1382,20 @@ void mouseReleased() {
     } else { // if unpressed
       shifters[0].sConfig = bitWrite(shifters[0].sConfig, 0, false); // set sConfig bit0 LOW - reverse gear button normal
     }
+    shifterLastConfig[5] = shifters[0].sConfig;
     wb = shCommand[5] + str(shifters[0].sConfig);
     executeWR();
   }
   if (controlb[13]) { // if we pressed manual cal button
     ActuateButton(13);
+    int im = 1;
+    if (noOptEnc && noMagEnc) {
+      im = 0;
+    }
     if (buttonpressed[13]) {
-      for (int i=1; i<=4; i++) slajderi[i].yLimitsVisible = true;
+      for (int i=im; i<=4; i++) slajderi[i].yLimitsVisible = true;
     } else {
-      for (int i=1; i<=4; i++) slajderi[i].yLimitsVisible = false;
+      for (int i=im; i<=4; i++) slajderi[i].yLimitsVisible = false;
     }
   }
   if (controlb[14]) { // if we pressed z reset button
@@ -1361,54 +1403,85 @@ void mouseReleased() {
     executeWR();
   }
   if (controlb[ctrl_btn+0]) { // if we pressed shifter calibration slider a
+    shifterLastConfig[0] = int(shifters[0].sCal[0]);
     wb = shCommand[0] + str(int(shifters[0].sCal[0]));
     executeWR();
   }
   if (controlb[ctrl_btn+1]) { // if we pressed shifter calibration slider b
+    shifterLastConfig[1] = int(shifters[0].sCal[1]);
     wb = shCommand[1] + str(int(shifters[0].sCal[1]));
     executeWR();
   }
   if (controlb[ctrl_btn+2]) { // if we pressed shifter calibration slider c
+    shifterLastConfig[2] = int(shifters[0].sCal[2]);
     wb = shCommand[2] + str(int(shifters[0].sCal[2]));
     executeWR();
   }
   if (controlb[ctrl_btn+3]) { // if we pressed shifter calibration slider d
+    shifterLastConfig[3] = int(shifters[0].sCal[3]);
     wb = shCommand[3] + str(int(shifters[0].sCal[3]));
     executeWR();
   }
   if (controlb[ctrl_btn+4]) { // if we pressed shifter calibration slider e
+    shifterLastConfig[4] = int(shifters[0].sCal[4]);
     wb = shCommand[4] + str(int(shifters[0].sCal[4]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+0]) { // if we pressed pedal calibration slider a
+  if (controlb[ctrl_btn+ctrl_sh_btn+0]) { // if we pressed pedal calibration slider c on X-axis
+    float sf = slajderi[2].am / slajderi[0].am; // we need to rescale cal values to the ones of Z-axis
+    pdlMinParm[1] = int(slajderi[0].pCal[0]*sf);
+    wb = pdlCommand[2] + str(int(slajderi[0].pCal[0]*sf));
+    executeWR();
+    if (twoFFBaxis_enabled) {
+      if (noOptEnc && noMagEnc) slajderi[2].yLimits[0].y = slajderi[0].yLimits[0].y; // copy x-axis cal limits to z-axis cal limits
+    }
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+1]) { // if we pressed pedal calibration slider d on X-axis
+    float sf = slajderi[2].am / slajderi[0].am; // we need to rescale cal values to the ones of Z-axis
+    pdlMaxParm[1] = int(slajderi[0].pCal[1]*sf);
+    wb = pdlCommand[3] + str(int(slajderi[0].pCal[1]*sf));
+    executeWR();
+    if (twoFFBaxis_enabled) {
+      if (noOptEnc && noMagEnc) slajderi[2].yLimits[1].y = slajderi[0].yLimits[1].y;  // copy x-axis cal limits to z-axis cal limits
+    }
+  }
+  if (controlb[ctrl_btn+ctrl_sh_btn+2]) { // if we pressed pedal calibration slider a
+    pdlMinParm[0] = int(slajderi[1].pCal[0]);
     wb = pdlCommand[0] + str(int(slajderi[1].pCal[0]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+1]) { // if we pressed pedal calibration slider b
+  if (controlb[ctrl_btn+ctrl_sh_btn+3]) { // if we pressed pedal calibration slider b
+    pdlMaxParm[0] = int(slajderi[1].pCal[1]);
     wb = pdlCommand[1] + str(int(slajderi[1].pCal[1]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+2]) { // if we pressed pedal calibration slider c
+  if (controlb[ctrl_btn+ctrl_sh_btn+4]) { // if we pressed pedal calibration slider c on Z-axis
+    pdlMinParm[1] = int(slajderi[2].pCal[0]);
     wb = pdlCommand[2] + str(int(slajderi[2].pCal[0]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+3]) { // if we pressed pedal calibration slider d
+  if (controlb[ctrl_btn+ctrl_sh_btn+5]) { // if we pressed pedal calibration slider d on Z-axis
+    pdlMaxParm[1] = int(slajderi[2].pCal[1]);
     wb = pdlCommand[3] + str(int(slajderi[2].pCal[1]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+4]) { // if we pressed pedal calibration slider e
+  if (controlb[ctrl_btn+ctrl_sh_btn+6]) { // if we pressed pedal calibration slider e
+    pdlMinParm[2] = int(slajderi[3].pCal[0]);
     wb = pdlCommand[4] + str(int(slajderi[3].pCal[0]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+5]) { // if we pressed pedal calibration slider f
+  if (controlb[ctrl_btn+ctrl_sh_btn+7]) { // if we pressed pedal calibration slider f
+    pdlMaxParm[2] = int(slajderi[3].pCal[1]);
     wb = pdlCommand[5] + str(int(slajderi[3].pCal[1]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+6]) { // if we pressed pedal calibration slider g
+  if (controlb[ctrl_btn+ctrl_sh_btn+8]) { // if we pressed pedal calibration slider g
+    pdlMinParm[3] = int(slajderi[4].pCal[0]);
     wb = pdlCommand[6] + str(int(slajderi[4].pCal[0]));
     executeWR();
   }
-  if (controlb[ctrl_btn+ctrl_sh_btn+7]) { // if we pressed pedal calibration slider h
+  if (controlb[ctrl_btn+ctrl_sh_btn+9]) { // if we pressed pedal calibration slider h
+    pdlMaxParm[3] = int(slajderi[4].pCal[1]);
     wb = pdlCommand[7] + str(int(slajderi[4].pCal[1]));
     executeWR();
   }
@@ -1540,12 +1613,37 @@ void setDefaults() {
   if (lastCPR != CPRdef) {
     num1.setValue(CPRdef); // update the numberbox with the new value
   }
+  if (bitRead(fwOpt, 0) == 0) {  // if firmware supports manual pedal calib - load default values and send to arduino
+    for (int i=0; i<pdlMinParm.length; i++) {
+      if (pdlMinParm[i] != pdlParmDef[2*i]) { // only update if default pedal calibration value is different than current GUI value
+        pdlMinParm[i] = pdlParmDef[2*i];
+        wb = pdlCommand[2*i] + int(pdlMinParm[i]); // update write buffer
+        executeWR(); // send command to arduino
+      }
+      if (pdlMaxParm[i] != pdlParmDef[2*i+1]) {  // only update if default pedal calibration value is different than current GUI value
+        pdlMaxParm[i] = pdlParmDef[2*i+1];
+        wb = pdlCommand[2*i+1] + int(pdlMaxParm[i]); // update write buffer
+        executeWR(); // send command to arduino
+      }
+      slajderi[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); // update GUI pedal calibration values to default ones
+    }
+    if (twoFFBaxis_enabled) {
+      if (noOptEnc && noMagEnc) {
+        float sf = slajderi[0].am / slajderi[2].am;
+        slajderi[0].updateCal(pdlMinParm[1]*sf, pdlMaxParm[1]*sf); // update x-axis cal limits from z-axis
+      }
+    }
+  }
   if (XYshifterEnabled) { // if firmware supports shifter - load its default values
     for (int i=0; i<xysParmDef.length; i++) {
-      wb = shCommand[i] + " " + xysParmDef[i]; 
-      executeWR();
+      if (shifterLastConfig[i] != xysParmDef[i]) {  // only update if particular default shifter calibration value is different than current GUI value
+        shifterLastConfig[i] = xysParmDef[i];
+        wb = shCommand[i] + xysParmDef[i];
+        executeWR();
+      }
     }
-    shifters[0].updateCal(str(xysParmDef[0])+" "+str(xysParmDef[1])+" "+str(xysParmDef[2])+" "+str(xysParmDef[3])+" "+str(xysParmDef[4])+" "+str(xysParmDef[5]));
+    shifters[0].updateCal(str(xysParmDef[0])+" "+str(xysParmDef[1])+" "+str(xysParmDef[2])+" "+str(xysParmDef[3])+" "+str(xysParmDef[4])+" "+str(xysParmDef[5])); // update state of GUI shifter calibration sliders
+    decodeShifterConfig(shifterLastConfig[5]); // update state of GUI shifter configuration buttons to latest ones
   }
 }
 
@@ -1570,11 +1668,61 @@ void setFromProfile() {
     sendEffstate(); // send new values to arduino
     effstateprev = effstate;
     if (AFFBenabled) {
-      cp5.get(ScrollableList.class, "FFBaxis").setValue(int(FFBAxisIndex)); // update analog FFB axis index if firmware supports it
+      cp5.get(ScrollableList.class, "xFFBaxis").setValue(int(xFFBAxisIndex)); // update analog FFB axis index if firmware supports it
     }
   }
   if (curCPR != lastCPR) {
     num1.setValue(curCPR); // update the numberbox with the new value and send to Arduino
+  }
+  if (bitRead(fwOpt, 0) == 0) {  // if firmware supports manual pedal calib - load values from profile and send to arduino
+    boolean override = true; // change this to false and uncomment part below to allow user to select if he wants to override calibration
+    /*int result;
+     if (profiles[cur_profile].checkPedalCfg()) { // check if profile values are different than curent ones, notify and ask the user if he wants to override
+     result = showConfirmDialog(frame, "This profile contains pedal calibration\nthat differs from current settings.\nOverwrite?");
+     if (result == YES_OPTION) override = true;
+     }*/
+    if (override) {
+      println("pedal calibration loaded from profile" + str(cur_profile));
+      for (int i=0; i<pdlMinParm.length; i++) {
+        if (pdlMinParm[i] != profiles[cur_profile].pMin[i]) { // only update if particular pedal calibration value from profile is different than current GUI value
+          pdlMinParm[i] = profiles[cur_profile].pMin[i];
+          wb = pdlCommand[2*i] + int(pdlMinParm[i]); // update write buffer
+          executeWR(); // send command to arduino
+        }
+        if (pdlMaxParm[i] != profiles[cur_profile].pMax[i]) {
+          pdlMaxParm[i] = profiles[cur_profile].pMax[i];
+          wb = pdlCommand[2*i+1] + int(pdlMaxParm[i]); // update write buffer
+          executeWR(); // send command to arduino
+        }
+        slajderi[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); // update GUI pedal calibration values to new ones from profile
+      }
+      if (twoFFBaxis_enabled) {
+        if (noOptEnc && noMagEnc) {
+          float sf = slajderi[0].am / slajderi[2].am;
+          slajderi[0].updateCal(pdlMinParm[1]*sf, pdlMaxParm[1]*sf); // update x-axis cal limits from z-axis
+        }
+      }
+    }
+  }
+  if (XYshifterEnabled) { // if firmware supports shifter - load values from profile and send to arduino
+    boolean override = true; // change this to false and uncomment part below to allow user to select if he wants to override calibration
+    /*int result;
+     if (profiles[cur_profile].checkShifterCfg()) {  // check if profile values are different than curent ones, notify and ask the user if he wants to override
+     result = showConfirmDialog(frame, "This profile contains shifter calibration\nthat differs from current settings.\nOverwrite?");
+     if (result == YES_OPTION) override = true;
+     }*/
+    if (override) {
+      println("shifter calibration loaded from profile" + str(cur_profile));
+      for (int i=0; i<shifterLastConfig.length; i++) {
+        if (shifterLastConfig[i] != profiles[cur_profile].xyshCfg[i]) { // only update if particular shifter setting from profile is different than current GUI value
+          shifterLastConfig[i] = profiles[cur_profile].xyshCfg[i]; // update GUI values from profile settings
+          wb = shCommand[i] + shifterLastConfig[i]; // update write buffer
+          executeWR(); // send command to arduino
+        }
+      }
+      shifters[0].updateCal(str(shifterLastConfig[0])+" "+str(shifterLastConfig[1])+" "+str(shifterLastConfig[2])+" "+str(shifterLastConfig[3])+" "+str(shifterLastConfig[4])+" "+str(shifterLastConfig[5]));
+    }
+    decodeShifterConfig(shifterLastConfig[5]); // update state of GUI shifter configuration buttons to latest ones
   }
 }
 
@@ -1638,7 +1786,7 @@ void readEffstate () { // decode effstate byte
     buttonpressed[j+3] = boolean(bitRead(effstate, j)); // decode desktop user effect switches
   }
   for (int j=5; j<=7; j++) {
-    FFBAxisIndex = bitWrite(byte(FFBAxisIndex), j-5, boolean(bitRead(effstate, j))); // decode FFB axis index
+    xFFBAxisIndex = bitWrite(byte(xFFBAxisIndex), j-5, boolean(bitRead(effstate, j))); // decode FFB axis index
   }
   effstateprev = effstate;
 }
@@ -1653,32 +1801,46 @@ void updateEffstate () { // code settings into effstate byte
     effstate = bitWrite(effstate, k, buttonpressed[k+3]); // code control switches
   }
   for (int k=5; k <=7; k++) {
-    effstate = bitWrite(effstate, k, boolean(bitRead(byte(FFBAxisIndex), k-5))); // code FFB axis index
+    effstate = bitWrite(effstate, k, boolean(bitRead(byte(xFFBAxisIndex), k-5))); // code FFB axis index
   }
 }
 
-void readPWMstate () { // decode settings from pwmstate value and update lists to those value
+void readPWMstate () { // decode settings from pwmstate value
   typepwm = boolean(bitRead (pwmstate, 0)); // bit0 of pwmstate is pwm type
-  // put pwmstate bit1 to modepwm bit0
-  modepwm = bitWrite(byte(modepwm), 0, boolean(bitRead (pwmstate, 1))); // bit1 and bit6 of pwmstate contain pwm mode
+  // put bit1 of pwmstate to bit0 modepwm 
+  modepwm = bitWrite(byte(modepwm), 0, boolean(bitRead (pwmstate, 1))); // bit1 and bit6 of pwmstate contain pwm mode (here we take care of bit1)
 
-  // pwmstate bits meaning  
-  // bit1 bit6 pwm_mode
-  // 0    0    pwm+-
-  // 0    1    pwm0.50.100
-  // 1    0    pwm+dir
-  // 1    1    rcm
+  // pwmstate bits meaning when no DAC
+  // bit1 bit6 pwm_mode     pwm_mode2 (2-ffb axis)
+  // 0    0    pwm+-        2ch pwm+-
+  // 0    1    pwm0.50.100  2ch pwm0.50.100 (not available yet)
+  // 1    0    pwm+dir      2ch pwm+dir     (not available yet)
+  // 1    1    rcm          2ch rcm         (not available yet)
 
   for (int i=2; i<=5; i++) { // read frequency index, bits 2-5 of pwmstate
     freqpwm = bitWrite(byte(freqpwm), i-2, boolean(bitRead(pwmstate, i)));
   }
-  if (DACenabled) {
-    modedac = boolean(bitRead (pwmstate, 6)); // bit6 of pwmstate is DAC mode
-  } else {
-    // put pwmstate bit6 to modepwm bit1
-    modepwm = bitWrite(byte(modepwm), 1, boolean(bitRead (pwmstate, 6))); // bit1 and bit6 of pwmstate contain pwm mode
-  }
-  enabledac = boolean(bitRead (pwmstate, 7)); // bit7 of pwmstate is DAC out enable
+
+  // pwmstate bits meaning with DAC
+  // bit6 bit5 dac_mode      dac_mode2 (2-ffb axis)
+  // 0    0    dac+-         1ch dac+-
+  // 0    1    dac0.50.100   2ch dac0.50.100
+  // 1    0    dac+dir       2ch dac+dir
+  // 1    1    none          none
+
+  // modedac
+  // bit0 bit1 dac_mode
+  // 0    0    dac+-
+  // 0    1    dac+dir
+  // 1    0    dac0.50.100
+  // 1    1    none
+
+  // bit6 and bit5 of pwmstate contain DAC mode
+  modedac = bitWrite(byte(modedac), 0, boolean(bitRead(pwmstate, 6))); // put bit6 of pwmstate to bit0 of modedac
+  modedac = bitWrite(byte(modedac), 1, boolean(bitRead(pwmstate, 5))); // put bit5 of pwmstate to bit1 of modedac
+  // put bit6 of pwmstate to bit1 of modepwm 
+  modepwm = bitWrite(byte(modepwm), 1, boolean(bitRead(pwmstate, 6))); // bit1 and bit6 of pwmstate contain pwm mode (here we take care of bit6)
+  enabledac = boolean(bitRead(pwmstate, 7)); // bit7 of pwmstate is DAC out enable
   pwmstateprev = pwmstate;
 }
 
@@ -1696,30 +1858,26 @@ void sendPWMstate () { // send pwmstate value to arduino
   }
   if (settingAllowed) {
     wb = "W " + str(int(pwmstate)); // set command for pwm settings
-    executeWR(); // send values to arduino and read buffer from wheel (arduino will save it in EEPPROM right away)
-    //println(str(typepwm)+ " "+str(modepwm)+ " "+str(freqpwm));
+    executeWR(); // send values to arduino and read response from it (arduino will save it in EEPPROM right away)
   } else {
-    showMessageDialog(frame, "You are trying to send pwm settings which are not allowed,\nplease set correct pwm settings first and try again.", "Caution", WARNING_MESSAGE);
+    showMessageDialog(frame, "You are trying to set pwm/dac settings that are not allowed,\nplease set correct pwm/dac settings first and try again.", "Caution", WARNING_MESSAGE);
   }
 }
 
-void updatePWMstate () { // code pwmstate byte from pwm settings values
+void updatePWMstate () { // code pwmstate byte from pwm/dac setting values
   pwmstate = bitWrite(pwmstate, 0, typepwm);
-  pwmstate = bitWrite(pwmstate, 1, boolean(bitRead(byte(modepwm), 0))); // only look at bit0 of modepwm
-  for (int i=0; i <=5; i++) { // set frequency index, bits 2-5 of pwmstate
-    pwmstate = bitWrite(pwmstate, i+2, boolean(bitRead(byte(freqpwm), i)));
+  pwmstate = bitWrite(pwmstate, 1, boolean(bitRead(byte(modepwm), 0))); // copy bit0 of modepwm into bit1 of pwmstate
+  for (int i=2; i <=5; i++) { // set frequency index, bits 2-5 of pwmstate
+    pwmstate = bitWrite(pwmstate, i, boolean(bitRead(byte(freqpwm), i-2)));
   }
   if (DACenabled) {
-    pwmstate = bitWrite(pwmstate, 6, modedac);
+    pwmstate = bitWrite(pwmstate, 6, boolean(bitRead(byte(modedac), 0)));
+    if (fwVerNum >= 250) pwmstate = bitWrite(pwmstate, 5, boolean(bitRead(byte(modedac), 1))); // since fw-v250 we have introduced dac0.50.100 mode so we need to read one more bit in order to configure 3 modes
   } else {
-    pwmstate = bitWrite(pwmstate, 6, boolean(bitRead(byte(modepwm), 1))); // only look at bit1 of modepwm
+    enabledac = false; // we set bit7 of pwmstate LOW when not using dac output, because it is unused (for simplicity we keep it 0 since this is MSB of pwmstate)
+    pwmstate = bitWrite(pwmstate, 6, boolean(bitRead(byte(modepwm), 1))); // only look at bit1 of modepwm (beacause we only have 2 modes: fast pwm and phase correct)
   }
-  pwmstate = bitWrite(pwmstate, 7, enabledac);
-  /*for (int i=0; i<8; i++) {
-   print(bitRead(pwmstate, 7-i));
-   }
-   println("");*/
-  //println("bit0="+str(bitRead(byte(modepwm), 0)) +", bit1= "+ str(bitRead(byte(modepwm), 1)));
+  pwmstate = bitWrite(pwmstate, 7, enabledac); // update DAC enable/disable state (for pwm output mode, it's just 0)
 }
 
 // function that will be called when controller 'numbers' changes
@@ -1781,7 +1939,7 @@ void pwmtype(int n) {
   c.setBackground(color(255, 0, 0));
   cp5.get(ScrollableList.class, "pwmtype").getItem(n).put("color", c);
   typepwm = boolean(n);
-  updatePWMstate ();
+  updatePWMstate();
 }
 
 void pwmmode(int n) {
@@ -1810,15 +1968,23 @@ void dacmode(int n) {
   CColor c = new CColor();
   c.setBackground(color(255, 0, 0));
   cp5.get(ScrollableList.class, "dacmode").getItem(n).put("color", c);
-  modedac = boolean(n);
+  modedac = n;
   updatePWMstate();
 }
 
-void FFBaxis(int n) {
+void dacout(int n) {
   CColor c = new CColor();
   c.setBackground(color(255, 0, 0));
-  cp5.get(ScrollableList.class, "FFBaxis").getItem(n).put("color", c);
-  FFBAxisIndex = byte(n);
+  cp5.get(ScrollableList.class, "dacmode").getItem(n).put("color", c);
+  enabledac = boolean(n);
+  updatePWMstate();
+}
+
+void xFFBaxis(int n) {
+  CColor c = new CColor();
+  c.setBackground(color(255, 0, 0));
+  cp5.get(ScrollableList.class, "xFFBaxis").getItem(n).put("color", c);
+  xFFBAxisIndex = byte(n);
   updateEffstate();
 }
 
@@ -1933,11 +2099,11 @@ String[] ProfileNameList() {
   return temp;
 }
 
-void loadProfiles() { // checks if profiles exist and then loads them in memory
+void loadProfiles() { // checks if profiles exist and then load them in memory
   for (int i=0; i<num_profiles; i++) {
     if (profiles[i].exists(i)) {
       profiles[i].loadFromFile("profile"+str(i));
-      println("profile"+str(i)+".txt", "found");
+      println("profile"+str(i)+".txt", "loaded in memory");
     } else {
       //println("profile"+str(i)+".txt", "not found");
     }
@@ -1980,66 +2146,85 @@ void SetAxisColors() { // set default, load or save axis colors into a txt file
     }
     String acset[] = {hex(axis_color[0]), hex(axis_color[1]), hex(axis_color[2]), hex(axis_color[3]), hex(axis_color[4])};
     saveStrings("/data/axisColor_cfg.txt", acset);  // save axis colors in HEX form
-    println("axis colors: saved to txt");
+    println("Axis colors: saved to txt");
+    showSetupTextLine("Axis colors: saved to txt");
   } else { // load colors from txt
     String[] newcolors = loadStrings("axisColor_cfg.txt");
     for (int i=0; i<num_axis; i++) {
       axis_color[i] = color(int(unhex(newcolors[i]))); //unhex returns int from string containing HEX number
     }
-    println("axis colors: loaded from txt");
+    println("Axis colors: loaded from txt");
+    showSetupTextLine("Axis colors: loaded from txt");
   }
 }
 
-/*void SquareAroundButtons() {
- strokeWeight(1);
- stroke(120);
- noFill();
- rect(Xoffset+width/2 + 1.5*60, height-posY+140, 274, 20); // for pwm
- rect(Xoffset+width/2 + 6.3*60, height-posY+140, 120, 20); // for for default, save
- rect(Xoffset+width/2 + 8.5*60, height-posY+140, 138, 20); // for for store
- }*/
-
-void showSetupText(String text) {
-  updateSetupText(text); // fill in the text buffer
+// show one line of setup text and append it to buffer
+void showSetupTextLine(String text) {
+  updateSetupTextLine(text); // append line to buffer
   background(51);
   for (int i=1; i<setupTextBuffer.length; i++) {
     text(setupTextBuffer[i], 20, height-(i+1)*font_size);
   }
 }
 
-void updateSetupText(String inline) {
-  setupTextBuffer[0] = inline;
+// append one line of setup text in the buffer
+void updateSetupTextLine(String s) {
+  setupTextLength++;
+  setupTextBuffer[0] = s;
   for (int i=setupTextBuffer.length-1; i>0; i--) {
     setupTextBuffer[i] = setupTextBuffer[i-1];
   }
 }
 
-void clearSetupText() {
+// clear setup text buffer
+void clearSetupTextBuffer() {
   for (int i=0; i<setupTextBuffer.length; i++) {
     setupTextBuffer[i] = " ";
   }
 }
 
-void draw_setupText() {
+// display setup text buffer
+void drawSetupTextBuffer(float a) {
   float maxWidth = 0;
   for (int i=0; i<setupTextBuffer.length; i++) {
     if (textWidth(setupTextBuffer[i]) >= maxWidth) maxWidth = textWidth(setupTextBuffer[i]);
   }
-  if (setupTextTimer < setupTextTimeout_ms) {
-    for (int i=1; i<setupTextBuffer.length; i++) {
-      if (setupTextBuffer[i].equals(" ")) break; // do not show empty lines
-      fill(51);
-      strokeWeight(1);
-      stroke(51);
-      rect(20, height-(i+1)*font_size, maxWidth, -1.2*font_size);
-      pushMatrix();
-      translate(20, height-(i+1)*font_size);
-      fill(255);
-      textSize(font_size);
-      text(setupTextBuffer[i], 0, 0);
-      popMatrix();
+  for (int i=1; i<=setupTextLength; i++) {
+    //if (setupTextBuffer[i].equals(" ")) break; // do not show empty lines
+    fill(51, a);
+    strokeWeight(1);
+    stroke(51, a);
+    rect(20, height-(i+1)*font_size, maxWidth, -1.1*font_size);
+    pushMatrix();
+    translate(20, height-(i+1.1)*font_size);
+    fill(255, a);
+    textSize(font_size);
+    text(setupTextBuffer[i], 0, 0);
+    popMatrix();
+  }
+}
+
+void animateSetupTextBuffer(int frames) {
+  float t = (float(frames) / frameRate); // update timer for showing setup text
+  float as = (1000.0 * setupTextInitAlpha) / (float(setupTextFadeout_ms) * frameRate); // fade out step for setupTextAlpha in each frame
+  float t_s = float(setupTextTimeout_ms)/1000.0; // timeout in s
+  if (t > t_s) {
+    setupTextAlpha -= as; // decrease setupTextAlpha until 0
+    if (setupTextAlpha < 0) {
+      setupTextAlpha = 0; // prevent negative
+      showSetupText = false;
     }
   }
+  drawSetupTextBuffer(setupTextAlpha);
+}
+
+void ExportSetupTextLog() {
+  String[] e = new String[setupTextLength];
+  for (int i=0; i<setupTextLength; i++) {
+    e[i] = setupTextBuffer[setupTextLength-i]; // reverse the order of lines
+  }
+  saveStrings("/data/setupTextLog.txt", e);
+  println("Exported setupTextLog.txt");
 }
 
 void refreshXYshifterPos() {
@@ -2052,10 +2237,57 @@ void refreshXYshifterCal() {
 }
 
 void updateLastShifterConfig() { // update curent shifter cal and config values
-  for (int i=0; i<shifterLastConfig.length; i++) {
+  for (int i=0; i<shifterLastConfig.length-1; i++) {
     shifterLastConfig[i] = int(shifters[0].sCal[i]); // XY shifter calibration values
   }
   shifterLastConfig[5] = int(shifters[0].sConfig); // XY shifter configuration
+}
+
+void codeShifterLastConfig() { // code shifter configuration buttons from GUI into a last config integer global variable
+  if (buttonpressed[17]) { // if b pressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 0, true); // sConfig bit0 HIGH - reverse gear button inverted (for logitech G25/G27/G29/G923 H-shifters)
+  } else { // if unpressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 0, false); // sConfig bit0 LOW - reverse gear button normal
+  }
+  if (buttonpressed[12]) { // if r pressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 1, true); // sConfig bit1 HIGH - 8 gear mode
+  } else { // if unpressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 1, false); // sConfig bit1 LOW - 6 gear mode
+  }
+  if (buttonpressed[15]) { // if x pressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 2, true); // sConfig bit1 HIGH - X-axis inverted
+  } else { // if unpressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 2, false); // sConfig bit1 LOW - X-axis normal
+  }
+  if (buttonpressed[16]) { // if y pressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 3, true); // sConfig bit1 HIGH - Y-axis inverted
+  } else { // if unpressed
+    shifterLastConfig[5] = bitWrite(byte(shifterLastConfig[5]), 3, false); // sConfig bit1 LOW - Y-axis normal
+  }
+}
+
+void decodeShifterConfig(int cfg) { // decode shifter config integer (from profile) into GUI shifter config buttons
+  byte shcfg = byte(cfg);
+  if (bitRead(shcfg, 0) == 1) { // if rev gear button is inverted
+    buttonpressed[17] = true; // set b button high
+  } else {
+    buttonpressed[17] = false; // set b button low
+  }
+  if (bitRead(shcfg, 1) == 1) { // if 8 gear mode
+    buttonpressed[12] = true; // set r button high
+  } else {
+    buttonpressed[12] = false; // set r button low
+  }
+  if (bitRead(shcfg, 2) == 1) { // if X-axis inverted
+    buttonpressed[15] = true; // set x button high
+  } else {
+    buttonpressed[15] = false; // set x button low
+  }
+  if (bitRead(shcfg, 3) == 1) { // if Y-axis inverted
+    buttonpressed[16] = true; // set y button high
+  } else {
+    buttonpressed[16] = false; // set y button low
+  }
 }
 
 void refreshPedalCalibration() {
@@ -2063,11 +2295,17 @@ void refreshPedalCalibration() {
   executeWR();
 }
 
-void updateLastPedalCalibration(String calibs) { // update curent firmware pedal manual cal limits
+void updateLastPedalCalibration(String calibs) { // update curent GUI pedal calibration limits from a string
   float[] temp = float(split(calibs, ' ')); // format is "min max min max min max min max"
   for (int i=0; i<pdlMinParm.length; i++) {
     pdlMinParm[i] = temp[2*i]; // every even number is min
     pdlMaxParm[i] = temp[2*i+1]; // every odd number is max
     slajderi[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); //update pCal
+  }
+  if (twoFFBaxis_enabled) {
+    if (noOptEnc && noMagEnc) {
+      float sf = slajderi[0].am / slajderi[2].am; // scale factor to convert x-axis cal limits range to z-axis cal limits range
+      slajderi[0].updateCal(pdlMinParm[1]*sf, pdlMaxParm[1]*sf); // copy z-axis cal limits to x-axis cal limits
+    }
   }
 }

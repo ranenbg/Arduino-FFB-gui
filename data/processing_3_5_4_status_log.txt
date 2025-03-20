@@ -1,36 +1,51 @@
+
 =======================================================
-  Arduino Leonardo FFB user interface	
-  wheel control v2.6.0 created by Milos Rankovic
+  Arduino-FFB-Wheel Graphical User Interface	
+  Wheel Control v2.6.3 created by	
+  Milos Rankovic 2018-2025
 =======================================================
   GameControlPlus V1.2.2 created by
   Christian Riekoff and Peter Lager
 =======================================================
-Failed to initialize device ELAN Miniport PTP Driver because of: java.io.IOException: Failed to acquire device (8007001e)
-Instance: org.gamecontrolplus.ControlIO@20da7359
+Instance: org.gamecontrolplus.ControlIO@62ea8962
 ##########################################################################################
                    Game Control Plus  - available devices
                    --------------------------------------
   0  Mouse     [Mouse]  on  [Unknown]
   1  Keyboard     [Keyboard]  on  [Unknown]
-  2  Arduino Leonardo     [Stick]  on  [Unknown]
+  2  G203 LIGHTSYNC Gaming Mouse     [Unknown]  on  [Unknown]
+  3  Virtual HID Framework (VHF) HID device     [Unknown]  on  [Unknown]
+  4  Arduino Leonardo     [Stick]  on  [Unknown]
+  5  Dell KB216 Wired Keyboard     [Unknown]  on  [Unknown]
+  6  Dell KB216 Wired Keyboard     [Unknown]  on  [Unknown]
+  7  G203 LIGHTSYNC Gaming Mouse     [Unknown]  on  [Unknown]
+  8  G203 LIGHTSYNC Gaming Mouse     [Unknown]  on  [Unknown]
+  9  G203 LIGHTSYNC Gaming Mouse     [Unknown]  on  [Unknown]
 ##########################################################################################
 
-Device: Arduino Leonardo
-COM: loaded from txt
-axis colors: loaded from txt
+HID device: Arduino Leonardo
+Exported setupTextLog.txt
+Port: COM5, loaded from txt
+Axis colors: loaded from txt
 =======================================================
-   G4P V4.3.9 created by Peter Lager
+   G4P V4.3.11 created by Peter Lager
 =======================================================
-Arduino FFB Wheel detected
-1080.0 1.0 0.5 0.5 1.0 1.0 1.0 0.5 0.7 1.0 0.0 128.0 65 10000 1000 33; 12ms
+Firmware settings detected
+360.0 1.0 0.5 0.5 1.0 1.0 1.0 0.5 0.7 1.0 0.0 128.0 1 4095 4096 34; 7ms
 Reading firmware version
-WB:V, RB:fw-v230zxm; 15ms
-Manual pcal detected
-Encoder Z-index detected
-ProMicro pinouts detected
-Analog axis for FFB detected
-WB:YR, RB:0 4095 0 4095 0 4095 0 4095; 16ms
-WB:V, RB:fw-v230zxm; 18ms
+WB:V, RB:fw-v250bdwxg; 13ms
+MCP4725 detected
+Analog axis for FFB enabled
+AS5600 detected
+No optical encoder supported
+2 FFB axis detected
+Manual pcal enabled
+WB:YR, RB:118 863 6 992 18 988 10 990; 16ms
+Using EEPROM to load/save settings
+WB:V, RB:fw-v250bdwxg; 17ms
 ControlP5 2.2.6 infos, comments, questions at http://www.sojamo.de/libraries/controlP5
-profile1.txt found
-profile2.txt found
+profile1.txt loaded in memory
+profile2.txt loaded in memory
+profile3.txt loaded in memory
+profile4.txt loaded in memory
+Exported setupTextLog.txt
