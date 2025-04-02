@@ -1,13 +1,16 @@
-Wheel control v2.6.3 configuration initialized
+Wheel control v2.6.4 configuration initialized
 HID device: Arduino Leonardo
 Port: COM5, loaded from txt
 Axis colors: loaded from txt
 Firmware settings detected
-1080 100 50 50 100 100 100 50 70 100 0 128 1 10000 4000 12
-HEX version: fw-v250cx
+360 100 50 50 100 100 100 50 10 100 0 128 1 2047 4095 12
+HEX version: fw-v250bdwux
 Analog axis for FFB enabled
-Hardware re-center button enabled
+AS5600 magnetic encoder detected
+TCA9548A i2C multiplexer detected
+No optical encoder supported
+2 FFB axis and 2 channel PWM output enabled
 Manual calibration for pedals enabled
-10 1023 10 1023 10 1023 10 1023
+128 863 28 998 81 982 79 980
 Using EEPROM to load/save settings
 Configuration done

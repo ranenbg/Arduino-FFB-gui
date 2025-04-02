@@ -1,7 +1,7 @@
 Milos Rankovic
 ranenbg@gmail.com
 06.03.2025.
-wheel control v2.6.3 - compatible with Arduino HEX versions fw-v250 (backward compatible with v170, v180, v190, v200, v210, v220, v230 and v240)
+wheel control v2.6.4 - compatible with Arduino HEX versions fw-v250 (backward compatible with v170, v180, v190, v200, v210, v220, v230 and v240)
 
 About:
 Wheel control GUI is made in windows programming environment called Processing v3.5.4, which is based on Java. It operates by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup. Arduino firmware and GUI are developed and tested in Win7/10/11.

@@ -1,6 +1,6 @@
 Milos Rankovic, ranenbg@gmail.com
 created 09.04.2024
-last updated 06.03.2025.
+last updated 02.04.2025.
 
 GUI change log from v2.5.1 to v2.6.0
 
@@ -69,3 +69,11 @@ GUI change log from v2.6.2 to v2.6.3
 - added support for other 2CH pwm modes (2CH PWM+DIR, 2CH PWM0-50-10 and 2CH RCM)
 - added support for new dac mode and its 2 channel equivalents (DAC0-50-100 and 2CH DAC0-50-100, 2CH DAC+DIR)
 - squashed a few small leftover bugs connected with configuring pwm/dac settings
+
+GUI change log from v2.6.3 to v2.6.4
+
+- added support for firmware option "u" (support for two magnetic encoders AS5600)
+- inactivated y-axis calibration limits (only for firmware "w" + "u")
+- rescaled y-axis bar graph max value to 65535 if 2nd magnetic encoder is used (only for firmware "w" + "u")
+- added support for firmware option "n" + "r" (for 24 buttons via 3x8bit SN74ALS166N or SN74HC165N shift register chips)
+- corrected inactivation of unavailable buttons when using shift registers and hat switch

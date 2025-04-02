@@ -34,7 +34,7 @@ import java.util.*;
 import static javax.swing.JOptionPane.*;
 import javax.swing.JFrame.*;
 
-String cpVer="v2.6.3"; // control panel version
+String cpVer="v2.6.4"; // control panel version
 
 Serial myPort;  // Create object from Serial class
 String rb;     // Data received from the serial port
@@ -94,10 +94,11 @@ float brake_max = 255.0; // max brake pressure
 boolean fbmnstp = false; // keeps track if we deactivated ffb monitor
 String fbmnstring; // string from ffb monitor readout
 String COMport[]; // string for serial port on which Arduino Leonardo is reported
-boolean BBenabled = false; // keeps track if button box is supported (3 digit fw's ending with 1)
+boolean BBenabled = false; // keeps track if button box is supported (3 digit fw ending with 1, only up to v240)
 boolean BMenabled = false; // keeps track if button matrix is supported (option "t") 
-boolean LCenabled = false; // keeps track if load cell is supported (3 digit fw's ending with 2)
-boolean DACenabled = false; // keeps track if FFB DAC output is supported in firmware (3 digit fw's ending with 3)
+boolean LCenabled = false; // keeps track if load cell is supported (3 digit fw ending with 2, only up to v240)
+boolean DACenabled = false; // keeps track if FFB DAC output is supported in firmware (3 digit fw ending with 3, only up to v240)
+boolean TCA9548enabled = false; // keeps track if multiplexer chip is supported in firmware (option "u")
 boolean checkFwVer = true; // when enabled update fwVersion will take place
 boolean enabledac; // keeps track if DAC output is not zeroed
 int modedac; // keeps track of DAC output settings
@@ -114,7 +115,7 @@ String fwVerStr; // Arduino firmware version not including the options
 int fwVerNum; // Arduino firmware version digits only
 byte fwOpt = 0; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
 byte fwOpt2 = 0; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-e, b1-x, b2-w, b3-c, b4-r, b5-b, b6-d, b7-p)
-byte fwOpt3 = 0; // Arduino firmware options 3rd byte, if present bit is HIGH (b0-, b1-l, b2-g, b3-, b4-, b5-, b6-, b7-)
+byte fwOpt3 = 0; // Arduino firmware options 3rd byte, if present bit is HIGH (b0-, b1-l, b2-g, b3-u, b4-, b5-, b6-, b7-)
 boolean noOptEnc = false; // true if firmware with "d" option without optical encoder support
 boolean noMagEnc = true; // false if firmware with "w" option which supports magnetic encoder AS5600
 boolean clutchenabled = true; // true if firmware supports clutch analog axis (not the case only for fw option "e")
@@ -136,7 +137,7 @@ List a1 = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0kHz", "8.0 kHz", "4.0 kHz",
 List a2_rcm = Arrays.asList("na", "na", "na", "na", "500 Hz", "400 Hz", "200 Hz", "122 Hz", "100 Hz", "61 Hz", "67 Hz", "50 Hz", "30 Hz"); // alternate pwm freq selection if RCM selected
 int allowedRCMfreqID = 4; // first allowed pwm freq ID for RCM mode from the above list (anything after and including 500Hz is allowed)
 int xFFBAxisIndex; // index of axis that is tied to the xFFB axis (bits 5-7 from effstate byte)
-int yFFBAxisIndex = 1; // index of axis that is tied to the xFFB axis (at the moment fixed to y-axis in firmware)
+int yFFBAxisIndex = 1; // index of axis that is tied to the yFFB axis (at the moment fixed to y-axis in firmware)
 int setupTextLines = 24; // number of available lines for text in configuration window
 String[] setupTextBuffer = new String[setupTextLines]; // array that holds all text for configuration window
 int setupTextTimeout_ms = 5000; // show setup text only during this timeout in [ms]
@@ -146,21 +147,21 @@ float setupTextInitAlpha = 255; // initial setup text alpha before fadeout
 float setupTextAlpha; // current text setupTextInitAlpha
 int setupTextLength = 0; // keeps track of how many lines of text we have in the setup text buffer
 int ffbx = 0; // x-axis FFB value from FFB monitor
-int ffby = 0; // x-axis FFB value from FFB monitor
+int ffby = 0; // y-axis FFB value from FFB monitor
 
 ControlIO control;
 Configuration config;
 ControlDevice gpad; 
 
 // gamepad axis array
-float[] Axis = new float[5];
+float[] Axis = new float[num_axis];
 float axisValue;
 float axisScaledValue;
 // gamepad button array
 boolean[] Button = new boolean [num_btn];
 boolean buttonValue = false;
 // gamepad D-pad
-int[] Dpad = new int[8];
+//int[] Dpad = new int[8];
 int hatvalue;
 // control buttons
 boolean[] controlb = new boolean[ctrl_btn+ctrl_sh_btn+ctrl_axis_btn]; // true as long as mouse is howered over
@@ -458,8 +459,8 @@ void setup() {
   }
   if (bitRead(fwOpt, 2) == 1) { // if bit2=1 - hat Switch suported by firmware (option "h")
     hatsw[0].enabled = true;
-    for (int i=0; i<4; i++) { // 2nd 4 buttons are unavailable if we are not using button matrix or button box
-      if (!BBenabled && !BMenabled) {
+    for (int i=0; i<4; i++) {
+      if (!BBenabled && !BMenabled) { // last 4 buttons of 2nd byte are unavailable if we are not using button matrix or button box
         dugmici[i].enabled = true;
       }
     }
@@ -516,6 +517,12 @@ void setup() {
     if (bitRead(fwOpt2, 4) == 1) { // if bit4=1, we have firmware with 24 buttons supported (option "r")
       for (int i=0; i<8; i++) {
         dugmici[16+i].enabled = true; // enable last 8 buttons
+      }
+      if (bitRead(fwOpt, 2) == 1) { // if we have hat switch, then only last 4 buttons are unavailable
+        for (int i=0; i<4; i++) {
+          dugmici[12+i].enabled = true; // re-enable last 4 buttons in 2nd byte
+          dugmici[20+i].enabled = false; // disable last 4 buttons in 3rd byte
+        }
       }
       showSetupTextLine("Using shift register: SN74ALS166N (24 buttons)");
       println("Nano button box detected");
@@ -633,6 +640,11 @@ void setup() {
   } else {
     noMagEnc = true;
     infobuttons[0].as = 0; // set optical quadrature encoder in info button
+  }
+  if (bitRead(fwOpt3, 3) == 1) { // if bit3=1 - tca9548 multiplexer is suported by firmware (option "u")
+    TCA9548enabled = true;
+    showSetupTextLine("TCA9548A i2C multiplexer detected");
+    println("TCA9548A i2C multiplexer detected");
   }
   if (bitRead(fwOpt2, 3) == 1) { // if bit3=1 - hardware re-center is suported by firmware (option "c")
     showSetupTextLine("Hardware re-center button enabled");
@@ -989,15 +1001,13 @@ void drawGUI() {
     buttons[11].active = false; // disable XY shifter button while we are running ffb monitor
     //buttons[12].active = false; // disable shifter r button while we are running ffb monitor
   }
-  //if (xFFBAxisIndex != 0) { // if X-axis is not tied to FFB axis
-  //buttons[0].active = false; // disable center button
-  //buttons[14].active = false; // disable z button
-  //} else {
-  //buttons[0].active = true; // re-enable center button
   if (noOptEnc && noMagEnc) buttons[0].active = false; // disable center button if we have no digital encoders
   if (twoFFBaxis_enabled) buttons[0].d = "set x to 0%";
+  if (twoFFBaxis_enabled && TCA9548enabled && !noMagEnc) {
+    buttons[0].d = "set x,y to 0%";
+    slajderi[1].am = 65535;
+  }
   if (bitRead(fwOpt, 1) == 1) buttons[14].active = true; // re-enable z button if supported by firmware
-  //}
   if (showSetupText) {
     animateSetupTextBuffer(frameCount);
   }
@@ -1276,9 +1286,10 @@ byte decodeFwOpts3 (String fopt) {
   byte temp = 0;
   if (fopt != "0") { // has firmware any options
     for (int j=0; j<fopt.length(); j++) {
-      if (fopt.charAt(j) == 'n') temp = bitWrite(temp, 0, true); // b=0, nano button box enabled
-      if (fopt.charAt(j) == 'l') temp = bitWrite(temp, 1, true); // b=1, load cell enabled
-      if (fopt.charAt(j) == 'g') temp = bitWrite(temp, 2, true); // b=1, external dac enabled
+      if (fopt.charAt(j) == 'n') temp = bitWrite(temp, 0, true); // b0=0, nano button box enabled
+      if (fopt.charAt(j) == 'l') temp = bitWrite(temp, 1, true); // b1=1, load cell enabled
+      if (fopt.charAt(j) == 'g') temp = bitWrite(temp, 2, true); // b2=1, external dac enabled
+      if (fopt.charAt(j) == 'u') temp = bitWrite(temp, 3, true); // b3=1, TCA9548 enabled (two AS5600 encoders)
     }
   }
   //println("fw opt3: 0x" + hex(temp));
@@ -1394,6 +1405,9 @@ void mouseReleased() {
     }
     if (buttonpressed[13]) {
       for (int i=im; i<=4; i++) slajderi[i].yLimitsVisible = true;
+      if (!noMagEnc && TCA9548enabled && twoFFBaxis_enabled) { // we are using dual AS5600
+        slajderi[1].yLimitsVisible = false; // inactivate cal limits on Y-axis
+      }
     } else {
       for (int i=im; i<=4; i++) slajderi[i].yLimitsVisible = false;
     }
