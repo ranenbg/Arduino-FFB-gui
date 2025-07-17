@@ -1,0 +1,15 @@
+Sprites changes incorporated into version
+
+
+V2.1.1 (10)
+Some print statements left behind after debugging now removed.
+
+V2.1 (9)
+Library and examples now fully Processing V2 and V3 compatible.
+
+V2.0.5 (7)
+Fixes bug that stopped sprites being deregistered..
+
+V2.0.4 (6)
+The library has been repackaged to work with 'Add Library' option of Processing 2.0b8 : no chnages were made to functionality. 
+

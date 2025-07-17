@@ -1,0 +1,28 @@
+Game Control Plus changes incorporated into version
+
+V1.2.2
+filter() method added to limit devices to be considered when matching with a configuration
+
+
+V1.2.1
+getMatchedDeviceSilent(...) method added to prevent the device configuration window opening if the device is not found.
+
+
+V1.2
+This is the first version to be compatible with Processing 3
+
+
+V1.1
+This is the last version to be compatible with Processing 2
+
+
+V1.0.3
+Bug fixes for 64 bit Linux use.
+
+
+V1.0.2
+WITHDRAWN
+
+
+V1.0.1
+Original release
