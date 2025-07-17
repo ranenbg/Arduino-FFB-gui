@@ -15,7 +15,7 @@ A graphical user interface for controlling and monitoring all aspects of the **[
 The GUI is made in Processing 3.5.4 IDE from scratch and requires the latest Java 8. In order to compile the source yourself, you will need to install the following Processing libraries:
 
 - Game Control Plus
-- G4P
+- G4P (no longer required)
 - Sprites
 - ControlP5
 
@@ -23,4 +23,4 @@ Make sure that all pde files are located in the folder named wheel_control. Proc
 
 ## Troubleshooting - first time run
 
-The program will look for all virtual COM port devices plugged into your PC, but it doesn't know to which COM port your Arduino is assigned. You can either follow the first-time run setup process and select your Arduino COM port from there, or if you experience the "stuck in black screen issue," you can do it manually. Locate the data folder and create a txt file named COM_cfg.txt (do not put .txt in the file name, it is just the file extension). Open this file and type COMx, where x is the 1-digit number of the COM port where your Arduino is located. You can find it in the device manager under ports, an example is COM5. Save the file and close it, then try to run wheel control exe again as an administrator. If the problem still persists, you may try to install Processing IDE 3.5.4, download missing libraries, and try to run it as the source code from there. Note that you must place all *.pde files from source folder into a folder named wheel_control.
+The program will look for all virtual COM port devices plugged into your PC, but it doesn't know to which COM port your Arduino is assigned. You can either follow the first-time run setup process and select your Arduino COM port from there, or if you experience the "stuck in black screen issue," you can do it manually. Locate the data folder and create a txt file named COM_cfg.txt (do not put .txt in the file name, it is just the file extension). Open this file and type COMx, where x is the 1-digit number of the COM port where your Arduino is located. You can find it in the device manager under ports, an example is COM5. Save the file and close it, then try to run wheel control exe again as an administrator. If the problem still persists, you may try to install Processing IDE 3.5.4, download missing libraries, and try to run it as the source code from there. Note that you must place all *.pde files from the source folder into a folder named wheel_control.
