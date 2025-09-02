@@ -222,8 +222,8 @@ InfoButton[] infobuttons = new InfoButton [1];
 // Default dimensions if no arguments are provided or they are invalid
 int defaultWidth = xSize_init;
 int defaultHeight = ySize_init;
-int windowWidth = defaultWidth;
-int windowHeight = defaultHeight;
+int windowWidth;
+int windowHeight;
 
 void settings() {
   // Check if command-line arguments were provided
@@ -258,8 +258,8 @@ void settings() {
 
 void setup() {
   //size(1440, 800, JAVA2D); // window size is given by the arguments in app shortcut, if none/invalid is provided - defaults from beginning of sketch are used
-  widthprev = xSize_init;
-  heightprev = ySize_init;
+  widthprev = defaultWidth;
+  heightprev = defaultHeight;
   surface.setTitle("Wheel Control " + cpVer);
   surface.setResizable(true);
   colorMode (HSB);
@@ -270,7 +270,7 @@ void setup() {
   println("=======================================================\n  Arduino-FFB-Wheel Graphical User Interface\t\n  Wheel Control "+cpVer +" created by\t\n  Milos Rankovic 2018-2025");
   clearSetupTextBuffer();
   showSetupTextLine("Wheel control "+cpVer+" configuration initialized");
-  showSetupTextLine("Resolution: " + str(widthprev) + "x" + str(heightprev));
+  showSetupTextLine("Resolution: " + str(windowWidth) + "x" + str(windowHeight));
   File f = new File(dataPath("COM_cfg.txt"));
   //https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
   if (!f.exists()) showMessageDialog(frame, "COM_cfg.txt was not found in your PC, but do not worry.\nYou either run the app for the 1st time, or you have\ndeleted the configuration file for a fresh start.\n\t\nPress OK to continue with the automatic setup process.", "Arduino FFB Wheel " + cpVer +" - Hello World :)", INFORMATION_MESSAGE);

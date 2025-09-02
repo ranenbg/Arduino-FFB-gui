@@ -4,13 +4,9 @@ HID device: Arduino Leonardo
 Port: COM5, loaded from txt
 Axis colors: loaded from txt
 Firmware settings detected
-1080 100 50 50 100 100 100 50 70 100 0 128 1 10000 2400 24
-HEX version: fw-v250bdwux
+1080 100 50 50 100 100 100 50 70 100 0 128 1 10000 4000 24
+HEX version: fw-v250x
 Analog axis for FFB enabled
-AS5600 magnetic encoder detected
-TCA9548A i2C multiplexer detected
-No optical encoder supported
-2 FFB axis and 2 channel PWM output enabled
 Manual calibration for pedals enabled
 0 1023 0 1023 0 1023 0 1023
 Using EEPROM to load/save settings

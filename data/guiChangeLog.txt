@@ -1,6 +1,6 @@
 Milos Rankovic, ranenbg@gmail.com
 created 09.04.2024
-last updated 17.07.2025.
+last updated 02.09.2025.
 
 GUI change log from v2.5.1 to v2.6.0
 
@@ -88,4 +88,5 @@ GUI change log from v2.6.4 to v2.6.5
 - added feature to embed command into GUI shortcut for setting the initial screen resolution (see manual for details)
 - added original wheel control icon (only visible in windows taskbar and GUI window title label, app icon is still a default one for processing)
 - small fixes and improvements of joystick view, 2-axis FFB monitor and startup diagnostics
+- fixed a bug with app shortcut command line for setting initial screen resolution
 
