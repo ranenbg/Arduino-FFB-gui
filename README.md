@@ -1,10 +1,10 @@
 # Arduino-FFB-gui
 
-A graphical user interface for controlling and monitoring all aspects of the **[Arduino FFB wheel](https://github.com/ranenbg/Arduino-FFB-wheel)** via RS232 serial port. Wheel control v2.6.5 supports Arduino HEX firmware v250 and is backward compatible with v240, v230, v220, v210, v200, v190, v180 and v170. You can use a stand-alone wheel_control.exe file from the **[latest release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)**, it already has all Java stuff embedded. For more details on how to set up and use the program correctly, please read the **[manual](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data/manual.txt)**. You can find some screenshots with step-by-step first-time run setup process in **[data](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data)** folder.
+A graphical user interface for controlling and monitoring all aspects of the **[Arduino FFB wheel](https://github.com/ranenbg/Arduino-FFB-wheel)** via RS232 serial port. Wheel control v2.6.6 supports Arduino HEX firmware v250 and is backward compatible with v240, v230, v220, v210, v200, v190, v180 and v170. You can use a stand-alone wheel_control.exe file from the **[latest release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)**, it already has all Java stuff embedded. For more details on how to set up and use the program correctly, please read the **[manual](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data/manual.txt)**. You can find some screenshots with step-by-step first-time run setup process in **[data](https://github.com/ranenbg/Arduino-FFB-gui/tree/master/data)** folder.
 
-### Screenshot of GUI v2.6.5
-![plot](./data/Wheel_control_v2_6_5.png)
-![plot](./data/Wheel_control_v2_6_5_pwm_as5600_2ffb_axis.png)
+### Screenshot of GUI v2.6.6
+![plot](./data/Wheel_control_v2_6_6.png)
+![plot](./data/Wheel_control_v2_6_6_2ffb_axis.png)
 
 ## Download - standalone app
 + ***[Latest Release](https://github.com/ranenbg/Arduino-FFB-gui/releases/latest)***
