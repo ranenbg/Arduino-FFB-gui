@@ -1,6 +1,6 @@
 Milos Rankovic, ranenbg@gmail.com
 created 09.04.2024
-last updated 02.02.2026.
+last updated 05.02.2026.
 
 GUI change log from v2.5.1 to v2.6.0
 
@@ -92,13 +92,15 @@ GUI change log from v2.6.4 to v2.6.5
 
 GUI change log from v2.6.5 to v2.6.6
 
+- fixed program startup crash when only one COM port was present
+- changed COM port selection to radio buttons and improved automatic startup procedure
 - added support for firmware "k" option (A0 pot reading is split into two HID axis for gas and brake - support for RC style transmitter control)
 - updated how inactive axis calibration limits are displayed (for "k" option firmware)
-- updated window info - year and paypal
+- updated window info - year
+- added paypal button with hyperlink for donations
 - fixed startup diagnostics info where custom screen resolution (by using shortcut commands) was not reported correctly
-- fixed a bug where 
 - fixed "+" key bug where window would get stuck if going past 1800deg
 - fixed CP5 sliders not responding issue where slider was correctly re-sized graphically, but its mouse hitbox was not updated
-- fixed CP5 re-sizing of dropdown menu lists which had the same issue as sliders (not done yet)
-- fixed CP5 numberbox that had same re-sizing issue (not done yet)
+- fixed CP5 re-sizing of dropdown menu lists which had the same issue as sliders
+- fixed CP5 numberbox that had the same re-sizing issue
 
