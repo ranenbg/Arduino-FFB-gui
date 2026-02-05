@@ -186,7 +186,7 @@ class WheelButton {
     }
     if (dActByp) enabled = true; // bypass the button in-activation
     int hue;
-    if (buttonValue) {
+    if (buttonMyValue) {
       hue = 64;
     } else {
       hue = 0;

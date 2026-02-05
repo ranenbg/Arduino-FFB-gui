@@ -1,6 +1,6 @@
 Milos Rankovic, ranenbg@gmail.com
 created 09.04.2024
-last updated 02.09.2025.
+last updated 02.02.2026.
 
 GUI change log from v2.5.1 to v2.6.0
 
@@ -89,4 +89,16 @@ GUI change log from v2.6.4 to v2.6.5
 - added original wheel control icon (only visible in windows taskbar and GUI window title label, app icon is still a default one for processing)
 - small fixes and improvements of joystick view, 2-axis FFB monitor and startup diagnostics
 - fixed a bug with app shortcut command line for setting initial screen resolution
+
+GUI change log from v2.6.5 to v2.6.6
+
+- added support for firmware "k" option (A0 pot reading is split into two HID axis for gas and brake - support for RC style transmitter control)
+- updated how inactive axis calibration limits are displayed (for "k" option firmware)
+- updated window info - year and paypal
+- fixed startup diagnostics info where custom screen resolution (by using shortcut commands) was not reported correctly
+- fixed a bug where 
+- fixed "+" key bug where window would get stuck if going past 1800deg
+- fixed CP5 sliders not responding issue where slider was correctly re-sized graphically, but its mouse hitbox was not updated
+- fixed CP5 re-sizing of dropdown menu lists which had the same issue as sliders (not done yet)
+- fixed CP5 numberbox that had same re-sizing issue (not done yet)
 

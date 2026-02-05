@@ -1,7 +1,7 @@
 Milos Rankovic
 ranenbg@gmail.com
-17.07.2025.
-wheel control v2.6.5 - compatible with Arduino HEX versions fw-v250 (backward compatible with v170, v180, v190, v200, v210, v220, v230 and v240)
+05.02.2026.
+wheel control v2.6.6 - compatible with Arduino HEX versions fw-v250 (backward compatible with v170, v180, v190, v200, v210, v220, v230 and v240)
 
 About:
 Wheel control GUI is made in windows programming environment called Processing v3.5.4, which is based on Java. It operates by directly reading HID values from Arduino such as axis and buttons. It uses RS232 or virtual serial port to send many settings that you may like to adjust (check firmware_info.txt for more details). The settings can be stored in Arduino EEPROM, such that they will be saved and automatically loaded at every powerup. Arduino firmware and GUI are developed and tested in Win7/10/11.
@@ -55,7 +55,7 @@ Using 2-axis FFB:
 Since v2.6.3 and firmware HEX v250b and above, a feature to use 2 FFB axis is supported. This allows you to use Arduino as a flight controller where x-axis is input for xFFB and y-axis for yFFB. Correspondingly, there are 4 PWM channels configured in dual PWM+- mode for H-bridge type of DC motor drivers. First PWM channel is on D9, D10 (left, right) and 2nd PWM channel on pins D11, D5(up, down). Additionally, firmware HEX v250bd allows you to use 2 analog inputs for x- and y-axis. At the moment, x-axis analog input is selectable, while y-axis is fixed to the brake pedal input.
 
 Using shortcut command to set initial GUI resolution/size
-Create a shortcut of wheel_control.exe from release. Right click shortcut and select properties. In target field, at the end of path add 2 numbers to specify X and Y pixel sizes of GUI and click ok. An example: C:\Users\mrank\Desktop\wheel_control_v2_6_5\wheel_control_v2_6_5\wheel_control.exe 1600 900
+Create a shortcut of wheel_control.exe from release. Right click shortcut and select properties. In target field, at the end of path add 2 numbers to specify X and Y pixel sizes of GUI and click ok. An example: C:\Users\mrank\Desktop\wheel_control_v2_6_6\wheel_control_v2_6_6\wheel_control.exe 1600 900
 
 
 Hopefully everything else will be self explanatory, I believe that this is an intuitive and user friendly GUI. Enjoy :)

@@ -1,6 +1,6 @@
 /*Arduino Force Feedback Wheel User Interface
  
- Copyright 2018-2025 Milos Rankovic (ranenbg [at] gmail [dot] com)
+ Copyright 2018-2026 Milos Rankovic (ranenbg [at] gmail [dot] com)
  
  Permission to use, copy, modify, distribute, and sell this
  software and its documentation for any purpose is hereby granted
@@ -33,8 +33,10 @@ import controlP5.*;
 import java.util.*;
 import static javax.swing.JOptionPane.*;
 import javax.swing.JFrame.*;
+import java.io.InputStreamReader;
+import java.io.BufferedReader;
 
-String cpVer="v2.6.5"; // control panel version
+String cpVer="v2.6.6"; // control panel version
 int xSize_init = 1440; // default window width
 int ySize_init = 800; // default window height
 int bckBrgt = 51; // background brignthness 
@@ -48,6 +50,7 @@ Sprite[] sprite = new Sprite[1];
 Domain domain;
 
 ControlP5 cp5; // Editable Numberbox for ControlP5
+controlP5.Button btn1; // paypal link button
 Numberbox num1; // encoder cpr 
 // drowdown menu lists
 ScrollableList ffb_axis; // ffb x-axis selector dropdown menu list
@@ -132,12 +135,13 @@ String fwVerStr; // Arduino firmware version not including the options
 int fwVerNum; // Arduino firmware version digits only
 byte fwOpt = 0; // Arduino firmware options 1st byte, if present bit is HIGH (b0-a, b1-z, b2-h, b3-s, b4-i, b5-m, b6-t, b7-f)
 byte fwOpt2 = 0; // Arduino firmware options 2nd byte, if present bit is HIGH (b0-e, b1-x, b2-w, b3-c, b4-r, b5-b, b6-d, b7-p)
-byte fwOpt3 = 0; // Arduino firmware options 3rd byte, if present bit is HIGH (b0-, b1-l, b2-g, b3-u, b4-, b5-, b6-, b7-)
+byte fwOpt3 = 0; // Arduino firmware options 3rd byte, if present bit is HIGH (b0-, b1-l, b2-g, b3-u, b4-k, b5-, b6-, b7-)
 boolean noOptEnc = false; // true if firmware with "d" option without optical encoder support
 boolean noMagEnc = true; // false if firmware with "w" option which supports magnetic encoder AS5600
 boolean clutchenabled = true; // true if firmware supports clutch analog axis (not the case only for fw option "e")
 boolean hbrakeenabled = true; // true if firmware supports handbrake analog axis (not the case only for fw option "e")
 boolean twoFFBaxis_enabled = false; // true if firmware supports 2 FFB axis (option "b")
+boolean splitAxis_enabled = false; // true if firmware supports it (option "k")
 int Xoffset = -44; // X-axis offset for buttons
 boolean XYshifterEnabled = false; // keeps track if XY analog shifter is supported by firmware
 int shifterLastConfig[] = new int[6]; // last XY shifter calibration and configuration settings
@@ -155,6 +159,7 @@ List a = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0 kHz", "8.0 kHz", "4.0 kHz",
 List a1 = Arrays.asList("40.0 kHz", "20.0 kHz", "16.0 kHz", "8.0 kHz", "4.0 kHz", "3.2 kHz", "1.6 kHz", "976 Hz", "800 Hz", "488 Hz", "533 Hz", "400 Hz", "244 Hz"); // wider pwm freq selection (fw-v210+), no RCM selected
 List a2_rcm = Arrays.asList("na", "na", "na", "na", "500 Hz", "400 Hz", "200 Hz", "122 Hz", "100 Hz", "61 Hz", "67 Hz", "50 Hz", "30 Hz"); // alternate pwm freq selection if RCM selected
 List b, c, c1, c2_rcm, c3_2pwm, d, d_250, d_250_2ch, d2, e, fb; // create scrolable list objects for other drop down menu lists
+String xm; // for encoder info indicator
 int allowedRCMfreqID = 4; // first allowed pwm freq ID for RCM mode from the above list (anything after including 500Hz is allowed)
 int xFFBAxisIndex; // index of axis that is tied to the xFFB axis (bits 5-7 from effstate byte)
 int yFFBAxisIndex = 1; // index of axis that is tied to the yFFB axis (at the moment fixed to y-axis in firmware)
@@ -190,7 +195,7 @@ float axisValue;
 //float axisHeightdValue;
 // gamepad button array
 boolean[] Button = new boolean [num_btn];
-boolean buttonValue = false;
+boolean buttonMyValue = false;
 // gamepad D-pad
 //int[] Dpad = new int[8];
 int hatvalue;
@@ -267,7 +272,7 @@ void setup() {
   background(bckBrgt);
   PImage icon = loadImage("/data/rane_wheel_rim_O-shape.png");
   surface.setIcon(icon);
-  println("=======================================================\n  Arduino-FFB-Wheel Graphical User Interface\t\n  Wheel Control "+cpVer +" created by\t\n  Milos Rankovic 2018-2025");
+  println("=======================================================\n  Arduino-FFB-Wheel Graphical User Interface\t\n  Wheel Control "+cpVer +" created by\t\n  Milos Rankovic 2018-2026");
   clearSetupTextBuffer();
   showSetupTextLine("Wheel control "+cpVer+" configuration initialized");
   showSetupTextLine("Resolution: " + str(windowWidth) + "x" + str(windowHeight));
@@ -308,12 +313,12 @@ void setup() {
     println("COM: searching...");
     showSetupTextLine("COM_cfg not found, starting setup wizard.");
     r = COMselector();
-    if (r == 0) {
-      System.exit(-1); // if errors or Arduino not connected
+    if (r == -1) {
+      System.exit(-1); // if errors close program
       println("COM: error");
     } else {
       String set[] = {Serial.list()[r]};
-      saveStrings("/data/COM_cfg.txt", set);  //save COM port of Arduino in a file
+      saveStrings("/data/COM_cfg.txt", set);  // save Arduino COM port index in a file
       println("config: saved");
     }
   }
@@ -339,7 +344,7 @@ void setup() {
   //wheels[0] = new Wheel(0.054*width+0.4*axisHeight, posY-72, axisHeight_init*0.95, axisHeight_init*0.95, str(frameRate));
   //wheels[1] = new Wheel(width/2+1.8*axisHeight, height/2, axisHeight*0.9, "LFS car's wheel Y");
   //}
-  
+
   wheels[0] = new Wheel(0.123*widthprev, 0.223*heightprev, wScaleX*axisHeight_init*0.8, wScaleY*axisHeight_init*0.8, str(frameRate));
 
   SetAxisColors(); // checks for existing colors in txt file
@@ -471,20 +476,8 @@ void setup() {
    sdr[j].setRotation(0.0, GControlMode.CENTER);
    }*/
 
-  // create CP5 (blue) sliders for configuring firmware and ffb parameters
-  cp5 = new ControlP5(this);
-  for (int i=0; i<cp5sdr.length; i++) {
-    cp5sdr[i] = cp5.addSlider(sliderlabel[i])
-      .setPosition(int(widthprev/cp5xoff), int(heightprev*(cp5yoff + i*3/cp5sdy)))
-      .setSize(int(widthprev/cp5sx), int(heightprev/cp5sy))
-      .setRange(0, 1)
-      .setValue(slider_value[i])
-      .setLabelVisible(false)
-      //.setNumberOfTickMarks(10)
-      .snapToTickMarks(false)
-      .setSliderMode(Slider.FLEXIBLE)
-      ;
-  }
+  cp5 = new ControlP5(this); // initialize CP5 objects
+  initCP5sliders(); // create CP5 sliders using widthpref and heightprev parameters
 
   // default FFB parameters and firmware settings
   defParmFFB[0] = 1080.0;
@@ -744,6 +737,10 @@ void setup() {
     showSetupTextLine("TCA9548A i2C multiplexer detected");
     println("TCA9548A i2C multiplexer detected");
   }
+  if (bitRead(fwOpt3, 4) == 1) { // if bit4=1 - split axis is enabled
+    showSetupTextLine("Split Z-axis enabled");
+    println("Split Z-axis enabled");
+  }
   if (bitRead(fwOpt2, 3) == 1) { // if bit3=1 - hardware re-center is suported by firmware (option "c")
     showSetupTextLine("Hardware re-center button enabled");
     println("Re-center button enabled");
@@ -831,16 +828,6 @@ void setup() {
   wb = "V";
   executeWR();
 
-  // create number box object for CPR adjustment
-  //cp5 = new ControlP5(this);
-  num1 = cp5.addNumberbox("CPR")
-    .setSize(45, 18)
-    .setPosition(int(width/3.65) - 15 +  0.0*60, height-posY+30)
-    .setValue(lastCPR)
-    .setRange(0, maxCPR)
-    ;               
-  makeEditable(num1);
-
   // define scrolable list objects
   b = Arrays.asList("fast pwm", "phase corr");
   c = Arrays.asList("pwm +-", "pwm+dir");
@@ -852,11 +839,73 @@ void setup() {
   d_250_2ch = Arrays.asList("1ch dac +- (xFFB)", "2ch dac+dir", "2ch dac0-50-100");
   d2 = Arrays.asList("dac off", "dac on");
   e = Arrays.asList("default");
-  String xm = "enc";
+  xm = "enc";
   if (noOptEnc && noMagEnc) xm = "pot"; // x-axis is on analog input, potentiometer
   fb = Arrays.asList("x-"+xm, "y-brk", "z-acc", "rx-clt", "ry-hbr");
 
-  /* add a ScrollableList, by default it behaves like a DropdownList */
+  initCP5PayPalLink(); // create paypal button with hyperlink
+  initCP5numberbox(); // create number box object for CPR adjustment
+  initCP5scrollableList_profile(); // for storing/loading firmware settings
+  initCP5scrollableList_pwms(); // for adjusting various PWM and DAC firmware settings
+  initCP5scrollableList_ffbaxis(); // for adjusting firmware setting of which axis FFB is tied to
+  loadProfiles(); // check if exists and load profiles from txt
+  showSetupTextLine("Configuration done");
+  ExportSetupTextLog();
+  setupTextAlpha = setupTextInitAlpha;
+}
+
+void initCP5PayPalLink() {
+  btn1 = cp5.addButton("paypal")
+    .setLabel("donate via paypal")
+    .setPosition(round(0.37*width), round(0.86*height))
+    .setSize(86, 20);
+}
+
+public void paypal() {
+  int response = showConfirmDialog(
+    frame, 
+    "Proceed to PayPal for a donation?", 
+    "Liking my Arduino FFB firmware? :)", 
+    YES_NO_OPTION, 
+    QUESTION_MESSAGE
+    );
+
+  if (response == YES_OPTION) {
+    link("https://www.paypal.me/ranenbg");
+  }
+}
+
+void initCP5sliders() {
+  // create CP5 (blue) sliders for configuring firmware and ffb parameters
+  for (int i=0; i<cp5sdr.length; i++) {
+    cp5sdr[i] = cp5.addSlider(sliderlabel[i])
+      .setPosition(int(widthprev/cp5xoff), int(heightprev*(cp5yoff + i*3/cp5sdy)))
+      .setSize(int(widthprev/cp5sx), int(heightprev/cp5sy))
+      .setRange(0, 1)
+      .setValue(slider_value[i])
+      .setLabelVisible(false)
+      //.setNumberOfTickMarks(10)
+      .snapToTickMarks(false)
+      .setSliderMode(Slider.FLEXIBLE)
+      ;
+  }
+}
+
+void initCP5numberbox() {
+  //cp5 = new ControlP5(this); // initialize CP5 objects
+  // create numberbox for adjusting encoder CPR
+  num1 = cp5.addNumberbox("CPR")
+    .setSize(45, 18)
+    .setPosition(int(width/3.65) - 15 +  0.0*60, height-posY+30)
+    .setValue(lastCPR)
+    .setRange(0, maxCPR)
+    ;               
+  makeEditable(num1);
+}
+
+void initCP5scrollableList_profile() {
+  //cp5 = new ControlP5(this); // initialize CP5 objects
+  // create dropdown menu list for storing/saving firmware settings
   profile = cp5.addScrollableList("profile")
     .setPosition(Xoffset+int(width/3.5) - 15 + 14*60, height-posY+30+108)
     .setSize(66, 100)
@@ -886,6 +935,9 @@ void setup() {
     profiles[i] = new Profile("slot"+str(i), empty, pempty, sempty); // create remaining empty profiles
     profile.addItem(profiles[i].name, empty);
   }
+}
+
+void initCP5scrollableList_pwms() {
   if (!DACenabled) {
     /* add a ScrollableList, by default it behaves like a DropdownList */
     pwm_freq = cp5.addScrollableList("frequency")
@@ -941,25 +993,26 @@ void setup() {
     pwm_mode.setValue(int(modepwm));
   } else { // if DAC enabled
     dac_mode = cp5.addScrollableList("dacmode")
-      .setPosition(Xoffset+int(width/3.5) - 15 + 9.4*60, height-posY+30+108)
+      .setPosition(Xoffset+int(widthprev/3.5) - 15 + 9.4*60, heightprev-posY+30+108)
       .setSize(60, 100)
       .setBarHeight(20)
       .setItemHeight(20)
       .addItems(d)
       //.setType(ScrollableList.LIST) // currently supported DROPDOWN and LIST
       ;
+    println();
     buttons[9].t = " dac";
     buttons[9].d = "set and save dac settings to arduino (no restart required)";
     if (fwVerNum >= 250 && !twoFFBaxis_enabled) {
       dac_mode.removeItems(d);
       dac_mode.addItems(d_250);
       dac_mode.setSize(74, 100);
-      dac_mode.setPosition(Xoffset+int(width/3.5) - 20 + 9.2*60, height-posY+30+108);
+      dac_mode.setPosition(Xoffset+int(widthprev/3.5) - 20 + 9.2*60, heightprev-posY+30+108);
     } else if (fwVerNum >= 250 && twoFFBaxis_enabled) {
       dac_mode.removeItems(d);
       dac_mode.addItems(d_250_2ch);
       dac_mode.setSize(90, 100);
-      dac_mode.setPosition(Xoffset+int(width/3.5) - 20 + 9.0*60, height-posY+30+108);
+      dac_mode.setPosition(Xoffset+int(widthprev/3.5) - 20 + 9.0*60, heightprev-posY+30+108);
     }
     dac_mode.close();
     dac_mode.setValue(int(modedac));
@@ -975,6 +1028,9 @@ void setup() {
     dac_out.close();
     dac_out.setValue(int(enabledac));
   }
+}
+
+void initCP5scrollableList_ffbaxis() {
   if (bitRead(fwOpt, 5) == 1 && bitRead(fwOpt, 7) == 1) fb = Arrays.asList("x-"+xm, "y-brk", "z-acc"); // if "f" and "m" options, we don't have clutch and hbrake axis available
   if (AFFBenabled) { // if firmware supports analog FFB axis
     ffb_axis = cp5.addScrollableList("xFFBaxis")
@@ -988,10 +1044,6 @@ void setup() {
     ffb_axis.close();
     ffb_axis.setValue(int(xFFBAxisIndex));
   }
-  loadProfiles(); // check if exists and load profiles from txt
-  showSetupTextLine("Configuration done");
-  ExportSetupTextLog();
-  setupTextAlpha = setupTextInitAlpha;
 }
 
 void draw() {
@@ -1017,8 +1069,9 @@ boolean GUIresized() {
     font_size = int(font_size_init*min(wScaleX, wScaleY));
     fontd = createFont("lucidasansunicode.ttf", int(0.8*font_size), true);
   }
+  fill(255);
   textSize(font_size);
-  text(str(widthprev) +"x"+ str(heightprev), font_size/3, 2*font_size);
+  text(str(widthprev) +"x"+ str(heightprev), font_size/3, 2*font_size); // curent screen resolution info
 
   return r;
 }
@@ -1031,7 +1084,7 @@ void drawGUI(boolean resize) {
   }
   for (int j = 0; j < wbuttons.length; j++) {
     wbuttons[j].update();
-    buttonValue = Button[j];
+    buttonMyValue = Button[j];
     wbuttons[j].show(j, resize);
   }
   for (int k = 0; k < hatsw.length; k++) {
@@ -1044,11 +1097,11 @@ void drawGUI(boolean resize) {
     wheels[0].updateWheel(axisBars[xFFBAxisIndex].axisVal*wParmFFB[0]/2, resize); // update the angle in units of degrees
     wheels[0].showWheelDeg(); // show the angle in units of degrees in a nice number format
     //wheels[0].showWheel();
+    if (resize) {
+      sprite[0].setXY(0.123*widthprev, 0.223*heightprev);
+      sprite[0].setScale(min(wScaleX, wScaleY));
+    }
     if (!buttonpressed[7]) {
-      if (resize) {
-        sprite[0].setXY(0.123*widthprev, 0.223*heightprev);
-        sprite[0].setScale(min(wScaleX, wScaleY));
-      }
       S4P.updateSprites(1);  // animated wheel from png sprite
       sprite[0].setRot(axisBars[xFFBAxisIndex].axisVal*wParmFFB[0]/2/180*PI); // set the angle of the sprite in units of radians
       S4P.drawSprites();
@@ -1174,11 +1227,11 @@ void draw_labels() {
   }
   // about info display
   pushMatrix();
-  translate(widthprev/3.5, heightprev - (0.64*axisHeight));
+  translate(widthprev/3.5, heightprev - (0.625*axisHeight));
   text("Arduino FFB Wheel, HEX " + FullfwVerStr.substring(3, FullfwVerStr.length()), 0, 0);
   text("Control Panel " + cpVer, 0, 1.6*font_size);
-  text("Miloš Ranković 2018-2025 ©", 0, 3.2*font_size);
-  text("ranenbg@gmail.com, paypal@ranenbg.com", 0, 4.8*font_size);
+  text("Miloš Ranković 2018-2026 ©", 0, 3.2*font_size);
+  text("ranenbg@gmail.com", 0, 4.8*font_size);
   popMatrix();
 
   int tn = 10;
@@ -1437,6 +1490,7 @@ byte decodeFwOpts3 (String fopt) {
       if (fopt.charAt(j) == 'l') temp = bitWrite(temp, 1, true); // b1=1, load cell enabled
       if (fopt.charAt(j) == 'g') temp = bitWrite(temp, 2, true); // b2=1, external dac enabled
       if (fopt.charAt(j) == 'u') temp = bitWrite(temp, 3, true); // b3=1, TCA9548 enabled (two AS5600 encoders)
+      if (fopt.charAt(j) == 'k') temp = bitWrite(temp, 4, true); // b4=1, split axis enabled
     }
   }
   //println("fw opt3: 0x" + hex(temp));
@@ -1993,21 +2047,25 @@ void controlEvent(CallbackEvent theEvent) {
  }*/
 
 void changeRot(float step) {
-  if (step >= 0.0) {
-    wParmFFB[0] += abs(step);
-    if (wParmFFB[0] >= maxAllowedDeg(lastCPR)) {
-      wParmFFB[0] = round(maxAllowedDeg(lastCPR));
+  if (step != 0.0) { // sanity check, do not do anything
+    if (step > 0.0) {
+      wParmFFB[0] += abs(step);
+      if (wParmFFB[0] >= maxAllowedDeg(lastCPR)) {
+        wParmFFB[0] = round(maxAllowedDeg(lastCPR));
+      }
+    } else {
+      wParmFFB[0] -= abs(step);
+      if (wParmFFB[0] <= deg_min) {
+        wParmFFB[0] = deg_min;
+      }
     }
-  } else {
-    wParmFFB[0] -= abs(step);
-    if (wParmFFB[0] <= deg_min) {
-      wParmFFB[0] = deg_min;
-    }
+    //sdr[0].setValue(wParmFFB[0]/deg_max);
+    cp5sdr[0].setBroadcast(false); // Turn off events
+    cp5sdr[0].setValue(wParmFFB[0]/deg_max);
+    cp5sdr[0].setBroadcast(true); // Turn events back on
+    slider_value[0] = wParmFFB[0];
+    wb = command[0] + str(int(wParmFFB[0]));
   }
-  //sdr[0].setValue(wParmFFB[0]/deg_max);
-  cp5sdr[0].setValue(wParmFFB[0]/deg_max);
-  slider_value[0] = wParmFFB[0];
-  wb = command[0] + str(int(wParmFFB[0]));
 }
 
 void ActuateButton(int id) { // turns specific button on/off
@@ -2256,50 +2314,105 @@ void profile(int n) {
   //listProfiles();
 }
 
+
 int COMselector() {
-  //https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
-  //show dialog window to select a serial device
-  String COMx, COMlist = "";
-  int result;
-  try {
-    if (debug) printArray(Serial.list());
-    int i = Serial.list().length;
-    if (i != 0) {
-      if (i >= 2) {
-        // need to check which port the inst uses -
-        // for now we'll just let the user decide
-        for (int j = 0; j < i; ) {
-          COMlist += "(" +char(j+'a') + ") " + Serial.list()[j];
-          if (++j < i) COMlist += ",  ";
-        }
-        COMx = showInputDialog(frame, "Step 2 of setup passed succesfuly, we're almost finished.\n\t" + gpad + " at? (type letter only)\n" + COMlist, "Setup - step 3/3", QUESTION_MESSAGE);
-        if (COMx == null) {
-          exit();
-        } else {
-          if (COMx.isEmpty()) exit();
-          i = int(COMx.toLowerCase().charAt(0) - 'a') + 1;
-        }
-      }
-      String portName = Serial.list()[i-1];
-      if (debug) println(gpad, "at", portName);
-      myPort = new Serial(this, portName, 115200); // change baud rate to your liking
-      //myPort.bufferUntil('\n'); // buffer until CR/LF appears, but not required..
-      result = i-1;
-      //exit();
-    } else {
-      showMessageDialog(frame, "No serial port deviced detected.\n", "Warning", WARNING_MESSAGE);
-      result = 0;
-      //exit();
-    }
+  // https://docs.oracle.com/javase/tutorial/uiswing/components/dialog.html
+  // show dialog window to select a serial device
+  String[] ports = Serial.list();
+  int result = -1;
+
+  if (ports.length == 0) {
+    showMessageDialog(frame, "No serial ports detected.", "Warning", WARNING_MESSAGE);
+    return -1;
   }
-  catch (Exception e)
-  { //Print the type of error
-    showMessageDialog(frame, "Selected COM port is not available,\ndoes not exist or may be in use by\nanother program.\n", "Setup Error", ERROR_MESSAGE);
-    println("Error:", e);
-    result = 0;
-    //exit();
+
+  // prepare the GUI panel
+  javax.swing.JPanel panel = new javax.swing.JPanel();
+  panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
+  panel.add(new javax.swing.JLabel("All good, select " + gpad + " with rane's firmware"));
+  panel.add(new javax.swing.JLabel(" ")); 
+
+  javax.swing.JRadioButton[] buttons = new javax.swing.JRadioButton[ports.length];
+  javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
+
+  // 2. Build buttons by getting the name FOR EACH port
+  for (int j = 0; j < ports.length; j++) {
+    String friendlyName = getSingleFriendlyName(ports[j]); 
+    // This displays: Arduino Leonardo (COM5) 
+    buttons[j] = new javax.swing.JRadioButton(friendlyName + " (" + ports[j] + ")");
+
+    if (j == 0) buttons[j].setSelected(true);
+    group.add(buttons[j]);
+    panel.add(buttons[j]);
+  }
+
+  int choice = showConfirmDialog(frame, panel, "Setup - step 3/3", 
+    OK_CANCEL_OPTION, 
+    INFORMATION_MESSAGE);
+
+  if (choice == OK_OPTION) {
+    for (int j = 0; j < ports.length; j++) {
+      if (buttons[j].isSelected()) {
+        try {
+          myPort = new Serial(this, ports[j], 115200);
+          result = j;
+        } 
+        catch (Exception e) {
+          showMessageDialog(frame, "Port " + ports[j] + " is busy.", "Error", ERROR_MESSAGE);
+          result = -1;
+        }
+        break;
+      }
+    }
+  } else {
+    exit();
   }
   return result;
+}
+
+String getFriendlyNames() {
+  String result = "";
+  int count = 0; // Initialize counter for [a], [b], etc.
+  try {
+    Process p = exec("wmic", "path", "Win32_PnPEntity", "where", "Name like '%(COM%)'", "get", "Name");
+    java.io.BufferedReader input = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
+    String line;
+    while ((line = input.readLine()) != null) {
+      String trimmedLine = line.trim();
+      // Only process lines that aren't empty and don't contain the header "Name"
+      if (trimmedLine.length() > 0 && !trimmedLine.equalsIgnoreCase("Name")) {
+        // Convert count 0 to 'a', 1 to 'b', etc.
+        char letter = char('a' + count);
+        result += "(" + letter + ") " + trimmedLine + "\n";
+        count++;
+      }
+    }
+  } 
+  catch (Exception e) {
+    return "Could not retrieve device names.";
+  }
+
+  return result;
+}
+
+String getSingleFriendlyName(String portLabel) {
+  String name = "Unknown Device";
+  try {
+    // Escaping backslashes for the WMIC query
+    Process p = exec("wmic", "path", "Win32_PnPEntity", "where", "Name like '%(" + portLabel + ")%'", "get", "Name");
+    java.io.BufferedReader input = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
+    String line;
+    while ((line = input.readLine()) != null) {
+      String trimmed = line.trim();
+      if (trimmed.length() > 0 && !trimmed.equalsIgnoreCase("Name")) {
+        // Remove the (COMx) part from the name to keep it clean
+        name = trimmed.replace("(" + portLabel + ")", "").trim();
+      }
+    }
+  } 
+  catch (Exception e) {
+  }
+  return name;
 }
 
 String[] ProfileNameList() {
@@ -2511,80 +2624,129 @@ void updateLastPedalCalibration(String calibs) { // update curent GUI pedal cali
   for (int i=0; i<pdlMinParm.length; i++) {
     pdlMinParm[i] = temp[2*i]; // every even number is min
     pdlMaxParm[i] = temp[2*i+1]; // every odd number is max
-    axisBars[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); //update pCal
+    axisBars[i+1].updateCal(pdlMinParm[i], pdlMaxParm[i]); // update pCal
   }
-  if (twoFFBaxis_enabled) {
-    if (noOptEnc && noMagEnc) {
-      float sf = axisBars[0].am / axisBars[2].am; // scale factor to convert x-axis cal limits range to z-axis cal limits range
-      axisBars[0].updateCal(pdlMinParm[1]*sf, pdlMaxParm[1]*sf); // copy z-axis cal limits to x-axis cal limits
-    }
+  //if (twoFFBaxis_enabled) {
+  if (noOptEnc && noMagEnc) {
+    float sf = axisBars[0].am / axisBars[2].am; // scale factor to convert x-axis cal limits range to z-axis cal limits range
+    axisBars[0].updateCal(pdlMinParm[1]*sf, pdlMaxParm[1]*sf); // copy z-axis cal limits to x-axis cal limits
+    axisBars[2].updateCal(0, axisBars[2].am); // just leave Z-axis call limits inactive and do not update them
   }
+  //}
 }
 
 void updateCP5_elements(boolean resize) {
   if (resize) {
-    int sy = int(1.6*font_size); 
-    for (int i=0; i<cp5sdr.length; i++) {
-      cp5sdr[i]
-        .setPosition(int(widthprev/cp5xoff), int(heightprev*(cp5yoff + i*3/cp5sdy)))
-        .setSize(int(widthprev/cp5sx), int(heightprev/cp5sy));
+    cp5 = new ControlP5(this);
+    int sy = int(1.6*font_size);
+    // store current values before removing
+    float[] tempValues = new float[cp5sdr.length];
+    for (int i = 0; i < cp5sdr.length; i++) {
+      tempValues[i] = cp5sdr[i].getValue();
+      cp5sdr[i].remove();
     }
+    initCP5sliders(); // re-initialize slider
+    for (int i=0; i<cp5sdr.length; i++) {
+      cp5sdr[i].setValue(tempValues[i]); // restore slider values
+    }
+    btn1.remove();
+    initCP5PayPalLink();
+    btn1
+      .setFont(fontd)
+      .setSize(int(textWidth("donate via paypal")+font_size), sy);
+    num1.remove();
+    initCP5numberbox();
     num1
       .setFont(fontd)
       .setPosition(int(xPosAxis(1)), int(2.32*axisHeight))
       .setSize(int(textWidth("99999")+font_size), sy);
+    profile.remove();
+    initCP5scrollableList_profile();
+    loadProfiles(); // re-load profiles
     profile
       .setFont(fontd)
       .setPosition(int(xPosCP5sdr(18)), int(yPosCP5sdr(12)))
-      .setSize(int(textWidth("profile")+2.0*font_size), 5*sy)
+      .setSize(int(textWidth("profiles")+2.0*font_size), 5*sy)
       .setBarHeight(sy)
       .setItemHeight(sy);
+    ffb_axis.remove();  
+    initCP5scrollableList_ffbaxis(); 
     ffb_axis
       .setFont(fontd)
       .setPosition(int(xPosAxis(0)), heightprev-posY+5)
       .setSize(int(textWidth("ry-hbr")+2.0*font_size), 6*sy)
       .setBarHeight(sy)
       .setItemHeight(sy);
-    pwm_type
-      .setFont(fontd)
-      .setPosition(int(xPosCP5sdr(21)), int(yPosCP5sdr(12)))
-      .setSize(int(textWidth("phase corr")+2.0*font_size), 3*sy)
-      .setBarHeight(sy)
-      .setItemHeight(sy);
-    pwm_mode
-      .setFont(fontd)
-      .setPosition(int(xPosCP5sdr(20)), int(yPosCP5sdr(12)))
-      .setSize(int(textWidth("pwm mode")+2.0*font_size), 5*sy)
-      .setBarHeight(sy)
-      .setItemHeight(sy);
-    pwm_freq
-      .setFont(fontd)
-      .setPosition(int(xPosCP5sdr(19)), int(yPosCP5sdr(12)))
-      .setSize(int(textWidth("40.0 kHz")+1.0*font_size), 5*sy)
-      .setBarHeight(sy)
-      .setItemHeight(sy);
     if (DACenabled) {
+      dac_mode.remove();
+      dac_out.remove();
+      initCP5scrollableList_pwms();
       dac_mode.setFont(fontd);
-      if (fwVerNum >= 250 && !twoFFBaxis_enabled) {
-        dac_mode.setPosition(Xoffset+int(widthprev/3.5) - 20 + 9.2*60, int(yPosCP5sdr(12)));
-      } else if (fwVerNum >= 250 && twoFFBaxis_enabled) {
-        dac_mode.setPosition(Xoffset+int(widthprev/3.5) - 20 + 9.0*60, int(yPosCP5sdr(12)));
+      dac_mode.setBarHeight(sy);
+      dac_mode.setItemHeight(sy);
+      if (fwVerNum >= 250) {
+        dac_mode.setPosition(int(xPosCP5sdr(22)), int(yPosCP5sdr(12)));
+        if (!twoFFBaxis_enabled) {
+          dac_mode.setSize(int(textWidth("dac0-50-100")+0.5*font_size), 4*sy);
+        } else if (fwVerNum >= 250 && twoFFBaxis_enabled) {
+          dac_mode.setSize(int(textWidth("2ch dac0-50-100")+0.5*font_size), 4*sy);
+        }
       }
-      dac_mode.setSize(int(wScaleX*60), int(wScaleY*100));
       dac_out.setFont(fontd);
+      dac_out.setBarHeight(sy);
+      dac_out.setItemHeight(sy);
+      dac_out.setSize(int(textWidth("dac off")+2.0*font_size), 3*sy);
+      dac_out.setPosition(int(xPosCP5sdr(23)), int(yPosCP5sdr(12)));
+    } else {
+      pwm_type.remove();
+      pwm_mode.remove();
+      pwm_freq.remove();
+      initCP5scrollableList_pwms();
+      pwm_type
+        .setFont(fontd)
+        .setPosition(int(xPosCP5sdr(21)), int(yPosCP5sdr(12)))
+        .setSize(int(textWidth("phase corr")+2.0*font_size), 3*sy)
+        .setBarHeight(sy)
+        .setItemHeight(sy);
+      pwm_mode
+        .setFont(fontd)
+        .setPosition(int(xPosCP5sdr(20)), int(yPosCP5sdr(12)))
+        .setBarHeight(sy)
+        .setItemHeight(sy);
       if (!twoFFBaxis_enabled) {
-        dac_out.setPosition(Xoffset+int(widthprev/3.5) + 4 + 7.6*60, int(yPosCP5sdr(12)));
+        pwm_mode.setSize(int(textWidth("pwm0-50-100")+0.5*font_size), 5*sy);
       } else {
-        dac_out.setPosition(Xoffset+int(widthprev/3.5) - 5 + 7.6*60, int(yPosCP5sdr(12)));
+        pwm_mode.setSize(int(textWidth("2ch pwm0-50-100")+0.5*font_size), 5*sy);
       }
-      dac_out.setSize(int(wScaleX*60), int(wScaleY*100));
+      pwm_freq
+        .setFont(fontd)
+        .setPosition(int(xPosCP5sdr(19)), int(yPosCP5sdr(12)))
+        .setSize(int(textWidth("40.0 kHz")+1.0*font_size), 5*sy)
+        .setBarHeight(sy)
+        .setItemHeight(sy);
     }
   }
 }
 
+float xPosAxis(int i) { // these are relative to AxisBars x-positions
+  float x = 0;
+  float[] mx = new float[32]; // x-offset multiplyers
+  mx[0] = 0.208; // for ffb_axis drop down menu list
+  mx[1] = 0.264; // for numberbox cpr adjustment
+  mx[2] = 0.391; // for auto cal button
+  mx[13] = 0.391; // for manual cal button
+  mx[11] = 0.312; // for H-shifter button
+  mx[15] = 0.312; // for x shifter button
+  mx[12] = 0.355; // for r shifter button
+  mx[17] = 0.355; // for b shifter button
+  mx[16] = 0.315; // for y shifter button
+  x = widthprev*mx[i];
+  return x;
+}
+
 float xPosCP5sdr(int i) { // these are relative to cp5 slider x-positions
   float x = 0;
-  float[] mx = new float[22]; // x-offset multiplyers
+  float[] mx = new float[24]; // x-offset multiplyers
   mx[3] = mx[4] = mx[5] = mx[6] = mx[7] = 1.15; // for ffb user effect buttons
   mx[9] = 0.42; // for pwm button
   mx[1] = 0.57; // for default button
@@ -2593,8 +2755,17 @@ float xPosCP5sdr(int i) { // these are relative to cp5 slider x-positions
   mx[11] = mx[12] = mx[15] = mx[16] = mx[17] = 6; // for shifter buttons
   mx[18] = 0.9; // for profile drop down menu list
   mx[19] = 0.224; // for pwm freq drop down menu list
-  mx[20] = -0.01; // for pwm mode drop down menu list
-  mx[21] = -0.225; // for pwm type drop down menu list
+  if (!twoFFBaxis_enabled) {
+    mx[20] = -0.017; // for pwm mode drop down menu list
+    mx[21] = -0.24; // for pwm type drop down menu list
+    mx[22] = 0.18; // for dac_mode drop down menu list
+    mx[23] = 0.0; // for dac_out drop down menu list
+  } else {
+    mx[20] = -0.08; // for pwm mode drop down menu list
+    mx[21] = -0.31; // for pwm type drop down menu list
+    mx[22] = 0.1; // for dac_mode drop down menu list
+    mx[23] = -0.1; // for dac_out drop down menu list
+  }
   x = widthprev*(1.0/cp5xoff + mx[i]/cp5sx);
   return x;
 }
@@ -2609,18 +2780,29 @@ float yPosCP5sdr(int i) {  // these are relative to cp5 slider y-positions
   return y;
 }
 
-float xPosAxis(int i) { // these are relative to AxisBars x-positions
-  float x = 0;
-  float[] mx = new float[32]; // x-offset multiplyers
-  mx[0] = 0.206; // for ffb_axis drop down menu list
-  mx[1] = 0.264; // for numberbox cpr adjustment
-  mx[2] = 0.391; // for auto cal button
-  mx[13] = 0.391; // for manual cal button
-  mx[11] = 0.312; // for H-shifter button
-  mx[15] = 0.312; // for x shifter button
-  mx[12] = 0.355; // for r shifter button
-  mx[17] = 0.355; // for b shifter button
-  mx[16] = 0.315; // for y shifter button
-  x = widthprev*mx[i];
-  return x;
+void exit() { // called on program close or clicking on window top corner X button
+  int leftover_count = 0;
+  String serial_leftover = "Leftover readings: ";
+  if (buttonpressed[7]) { // if we left FFB monitor open
+    buttonpressed[7] = false; // turn FFB monitor off
+    updateEffstate(); // update effstate each time a button is released
+    if (effstate != effstateprev) { // send only if a change was made
+      sendEffstate (); // code buttons into effstate and send bytes to arduino
+      effstateprev = effstate;
+    }
+    println("FFB monitor stopped");
+
+    while (myPort.available() > 0) {
+      myPort.read(); // Clear out any leftover junk
+      leftover_count++;
+    }
+    println(serial_leftover+ str(leftover_count));
+    //showMessageDialog(frame, "Always close FFB monitor before exit.", "FFB monitor running", INFORMATION_MESSAGE); // show an info message to user that FFB monitor was left running
+    delay(10); // give the arduino a tiny moment to process the byte
+  }
+  if (myPort != null) { // if serial port was open
+    myPort.stop(); // close the serial port properly
+    println("Serial port stopped");
+  }
+  super.exit(); // crucial: call the super.exit() to actually close the GUI
 }
