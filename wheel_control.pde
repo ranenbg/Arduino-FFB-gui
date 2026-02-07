@@ -295,10 +295,11 @@ void setup() {
   if (gpad == null) {
     println("No suitable HID device found");
     showSetupTextLine("No suitable HID device found");
+    ExportSetupTextLog();
     System.exit(-1); // End the program NOW!
   } else {
-    showSetupTextLine("HID device: " + gpad);
-    println("HID device:", gpad);
+    showSetupTextLine("HID device: " + trim(gpad.getName()));
+    println("HID device: ", trim(gpad.getName()));
   }
   int r;
   //println("   config:",f.exists());
@@ -310,16 +311,19 @@ void setup() {
     println("Port: " + COMport[0] + ", loaded from txt");
     myPort = new Serial(this, COMport[0], 115200);
   } else {  // open window for selecting available COM ports
-    println("COM: searching...");
-    showSetupTextLine("COM_cfg not found, starting setup wizard.");
+    println("Discovering COM devices");
+    showSetupTextLine("COM_cfg not found, starting setup wizard");
     r = COMselector();
     if (r == -1) {
+      println("no serial devices found");
+      showSetupTextLine("Error - serial devices not available, or wizard canceled by user");
+      ExportSetupTextLog();
       System.exit(-1); // if errors close program
-      println("COM: error");
     } else {
       String set[] = {Serial.list()[r]};
       saveStrings("/data/COM_cfg.txt", set);  // save Arduino COM port index in a file
-      println("config: saved");
+      showSetupTextLine(set[r] + " configured by user input");
+      println(set[r] + ": config saved ");
     }
   }
   myPort.bufferUntil(char(10)); // read serial data utill line feed character (we still need to toss carriage return char from input string)
@@ -2329,13 +2333,13 @@ int COMselector() {
   // prepare the GUI panel
   javax.swing.JPanel panel = new javax.swing.JPanel();
   panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
-  panel.add(new javax.swing.JLabel("All good, select " + gpad + " with rane's firmware"));
+  panel.add(new javax.swing.JLabel("All good, select " + trim(gpad.getName()) + " with rane's firmware"));
   panel.add(new javax.swing.JLabel(" ")); 
 
   javax.swing.JRadioButton[] buttons = new javax.swing.JRadioButton[ports.length];
   javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
 
-  // 2. Build buttons by getting the name FOR EACH port
+  // build buttons by getting the name FOR EACH port
   for (int j = 0; j < ports.length; j++) {
     String friendlyName = getSingleFriendlyName(ports[j]); 
     // This displays: Arduino Leonardo (COM5) 
@@ -2372,7 +2376,7 @@ int COMselector() {
 
 String getFriendlyNames() {
   String result = "";
-  int count = 0; // Initialize counter for [a], [b], etc.
+  int count = 0; // Initialize counter for (a), (b), etc.
   try {
     Process p = exec("wmic", "path", "Win32_PnPEntity", "where", "Name like '%(COM%)'", "get", "Name");
     java.io.BufferedReader input = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()));
