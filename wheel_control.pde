@@ -305,25 +305,34 @@ void setup() {
   //println("   config:",f.exists());
   if (f.exists()) { // if there is COM_cfg.txt, load serial port number from cfg file
     COMport = loadStrings("/data/COM_cfg.txt");
-    showSetupTextLine("Port: " + COMport[0] + ", loaded from txt");
+    showSetupTextLine(COMport[0] + ": loaded from txt");
     ExportSetupTextLog();
     //showMessageDialog(frame, "COM_cfg.txt found\nDetected port: " + COMport[0], "Info", INFORMATION_MESSAGE);
-    println("Port: " + COMport[0] + ", loaded from txt");
+    println(COMport[0] + ": loaded from txt");
     myPort = new Serial(this, COMport[0], 115200);
   } else {  // open window for selecting available COM ports
     println("Discovering COM devices");
-    showSetupTextLine("COM_cfg not found, starting setup wizard");
-    r = COMselector();
+    showSetupTextLine("COM_cfg not present, starting setup wizard");
+    r = COMselector(); // create window with radio buttons for chosing COM port
     if (r == -1) {
       println("no serial devices found");
-      showSetupTextLine("Error - serial devices not available, or wizard canceled by user");
+      showSetupTextLine("Error - serial device not available, or wizard canceled by user");
       ExportSetupTextLog();
       System.exit(-1); // if errors close program
     } else {
-      String set[] = {Serial.list()[r]};
-      saveStrings("/data/COM_cfg.txt", set);  // save Arduino COM port index in a file
-      showSetupTextLine(set[r] + " configured by user input");
-      println(set[r] + ": config saved ");
+      try {
+        myPort = new Serial(this, Serial.list()[r], 115200);
+        String set[] = {Serial.list()[r]};
+        saveStrings("/data/COM_cfg.txt", set);  // save Arduino COM port index in a file
+        println(Serial.list()[r] + ": configured and saved ");
+        showSetupTextLine(Serial.list()[r] + ": configured and saved ");
+      } 
+      catch (Exception e) {
+        showMessageDialog(frame, "Port " + Serial.list()[r] + " is busy, try to close the app using it.", "Error", ERROR_MESSAGE);
+        println("Port " + Serial.list()[r] + " is busy.");
+        ExportSetupTextLog();
+        System.exit(-1);
+      }
     }
   }
   myPort.bufferUntil(char(10)); // read serial data utill line feed character (we still need to toss carriage return char from input string)
@@ -2325,51 +2334,46 @@ int COMselector() {
   String[] ports = Serial.list();
   int result = -1;
 
-  if (ports.length == 0) {
+  if (ports == null) {
     showMessageDialog(frame, "No serial ports detected.", "Warning", WARNING_MESSAGE);
     return -1;
-  }
+  } else if (ports.length == 1) {
+    return 0; // we only have one COM port available, so automaticaly chose it
+  } else { // only if there is 2 or more COM ports give user the selection window
+    // prepare the GUI panel
+    javax.swing.JPanel panel = new javax.swing.JPanel();
+    panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
+    panel.add(new javax.swing.JLabel("All good, select " + trim(gpad.getName()) + " with rane's firmware"));
+    panel.add(new javax.swing.JLabel(" ")); 
 
-  // prepare the GUI panel
-  javax.swing.JPanel panel = new javax.swing.JPanel();
-  panel.setLayout(new javax.swing.BoxLayout(panel, javax.swing.BoxLayout.Y_AXIS));
-  panel.add(new javax.swing.JLabel("All good, select " + trim(gpad.getName()) + " with rane's firmware"));
-  panel.add(new javax.swing.JLabel(" ")); 
+    javax.swing.JRadioButton[] buttons = new javax.swing.JRadioButton[ports.length];
+    javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
 
-  javax.swing.JRadioButton[] buttons = new javax.swing.JRadioButton[ports.length];
-  javax.swing.ButtonGroup group = new javax.swing.ButtonGroup();
-
-  // build buttons by getting the name FOR EACH port
-  for (int j = 0; j < ports.length; j++) {
-    String friendlyName = getSingleFriendlyName(ports[j]); 
-    // This displays: Arduino Leonardo (COM5) 
-    buttons[j] = new javax.swing.JRadioButton(friendlyName + " (" + ports[j] + ")");
-
-    if (j == 0) buttons[j].setSelected(true);
-    group.add(buttons[j]);
-    panel.add(buttons[j]);
-  }
-
-  int choice = showConfirmDialog(frame, panel, "Setup - step 3/3", 
-    OK_CANCEL_OPTION, 
-    INFORMATION_MESSAGE);
-
-  if (choice == OK_OPTION) {
+    // build buttons by getting the name FOR EACH port
     for (int j = 0; j < ports.length; j++) {
-      if (buttons[j].isSelected()) {
-        try {
-          myPort = new Serial(this, ports[j], 115200);
-          result = j;
-        } 
-        catch (Exception e) {
-          showMessageDialog(frame, "Port " + ports[j] + " is busy.", "Error", ERROR_MESSAGE);
-          result = -1;
-        }
-        break;
-      }
+      String friendlyName = getSingleFriendlyName(ports[j]); 
+      // This displays: Arduino Leonardo (COM5) 
+      buttons[j] = new javax.swing.JRadioButton(friendlyName + " (" + ports[j] + ")");
+
+      if (j == 0) buttons[j].setSelected(true);
+      group.add(buttons[j]);
+      panel.add(buttons[j]);
     }
-  } else {
-    exit();
+
+    int choice = showConfirmDialog(frame, panel, "Setup - step 3/3", 
+      OK_CANCEL_OPTION, 
+      INFORMATION_MESSAGE);
+
+    if (choice == OK_OPTION) {
+      for (int j = 0; j < ports.length; j++) {
+        if (buttons[j].isSelected()) {
+          result = j;
+          break;
+        }
+      }
+    } else {
+      exit();
+    }
   }
   return result;
 }
